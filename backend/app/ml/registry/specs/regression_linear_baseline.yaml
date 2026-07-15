@@ -1,0 +1,18 @@
+id: regression.linear_baseline
+display_name: Ridge Regression (baseline)
+task_types: [regression]
+when_to_use: >
+  Fast, interpretable linear baseline with L2 regularization. Strong choice
+  when the target is roughly a linear function of the features, when the
+  dataset is small, or as a sanity-check baseline. Coefficients are directly
+  inspectable.
+preprocessing:
+  numeric: { impute: median, scale: true }
+  categorical: { impute: most_frequent, encode: onehot }
+model:
+  class: sklearn.linear_model.Ridge
+  params: {}
+  grid:
+    alpha: [0.1, 1.0, 10.0]
+metrics:
+  regression: { default: r2, supported: [r2, mae, rmse] }

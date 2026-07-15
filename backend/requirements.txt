@@ -1,0 +1,11 @@
+fastapi>=0.115
+uvicorn[standard]>=0.32
+anthropic>=0.40
+scikit-learn>=1.6
+lightgbm>=4.5
+pandas>=2.2
+sqlalchemy>=2.0
+joblib>=1.4
+pyyaml>=6.0
+python-multipart>=0.0.12
+python-dotenv>=1.0

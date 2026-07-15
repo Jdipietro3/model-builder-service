@@ -1,0 +1,67 @@
+import uuid
+from datetime import datetime, timezone
+
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
+
+from .db import Base
+
+
+def _uuid() -> str:
+    return uuid.uuid4().hex
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    role: Mapped[str] = mapped_column(String(20))  # "user" | "assistant"
+    content: Mapped[str] = mapped_column(Text, default="")
+    # Structured card payloads rendered by the UI alongside the text:
+    # [{"type": "profile"|"plan"|"report", ...}]
+    cards: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Hidden messages (e.g. synthetic "training finished" events) are kept for
+    # LLM context but not rendered as chat bubbles.
+    hidden: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+class Dataset(Base):
+    __tablename__ = "datasets"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    filename: Mapped[str] = mapped_column(String(300))
+    path: Mapped[str] = mapped_column(String(500))
+    profile: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+class Run(Base):
+    __tablename__ = "runs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    dataset_id: Mapped[str] = mapped_column(ForeignKey("datasets.id"))
+    # pending_approval -> queued -> running -> completed | failed
+    status: Mapped[str] = mapped_column(String(30), default="pending_approval")
+    plan: Mapped[dict] = mapped_column(JSON)
+    progress: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    results: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    artifact_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)

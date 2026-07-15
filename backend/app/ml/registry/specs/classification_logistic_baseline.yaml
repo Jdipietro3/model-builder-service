@@ -1,0 +1,20 @@
+id: classification.logistic_baseline
+display_name: Logistic Regression (baseline)
+task_types: [binary_classification, multiclass_classification]
+when_to_use: >
+  Fast, interpretable linear baseline. Good first model on any tabular
+  classification problem, and often sufficient when relationships are roughly
+  linear or the dataset is small (< 5k rows). Coefficients are directly
+  inspectable. Choose this when the user values interpretability or as a
+  sanity-check baseline alongside a stronger model.
+preprocessing:
+  numeric: { impute: median, scale: true }
+  categorical: { impute: most_frequent, encode: onehot }
+model:
+  class: sklearn.linear_model.LogisticRegression
+  params: { max_iter: 2000 }
+  grid:
+    C: [0.1, 1.0, 10.0]
+metrics:
+  binary_classification: { default: roc_auc, supported: [roc_auc, pr_auc, f1, accuracy, balanced_accuracy] }
+  multiclass_classification: { default: f1_macro, supported: [f1_macro, accuracy, balanced_accuracy] }

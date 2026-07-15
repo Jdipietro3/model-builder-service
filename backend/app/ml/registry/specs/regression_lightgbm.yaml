@@ -1,0 +1,25 @@
+id: regression.lightgbm
+display_name: Gradient Boosting Regressor (LightGBM)
+task_types: [regression]
+when_to_use: >
+  The default workhorse for tabular regression. Strongest general-purpose
+  approach for structured data beyond ~1k rows; captures non-linearities and
+  interactions automatically. Prefer this unless the dataset is tiny or
+  coefficient-level interpretability is required.
+preprocessing:
+  numeric: { impute: median, scale: false }
+  categorical: { impute: most_frequent, encode: onehot }
+model:
+  class: lightgbm.LGBMRegressor
+  params: { n_estimators: 300, learning_rate: 0.05, random_state: 42, verbosity: -1 }
+  grid:
+    num_leaves: [15, 31]
+    learning_rate: [0.05, 0.1]
+  fallback:
+    class: sklearn.ensemble.HistGradientBoostingRegressor
+    params: { max_iter: 300, learning_rate: 0.05, random_state: 42 }
+    grid:
+      max_leaf_nodes: [15, 31]
+      learning_rate: [0.05, 0.1]
+metrics:
+  regression: { default: r2, supported: [r2, mae, rmse] }

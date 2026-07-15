@@ -1,0 +1,21 @@
+id: classification.random_forest
+display_name: Random Forest
+task_types: [binary_classification, multiclass_classification]
+when_to_use: >
+  Robust non-linear ensemble that needs little tuning and handles mixed
+  feature types and outliers well. A good choice for small-to-medium datasets
+  (1k-100k rows) when you want solid accuracy without the tuning sensitivity
+  of gradient boosting. Slightly weaker than boosting on most tabular
+  benchmarks but harder to misconfigure.
+preprocessing:
+  numeric: { impute: median, scale: false }
+  categorical: { impute: most_frequent, encode: onehot }
+model:
+  class: sklearn.ensemble.RandomForestClassifier
+  params: { n_estimators: 300, n_jobs: -1, random_state: 42 }
+  grid:
+    max_depth: [10, null]
+    min_samples_leaf: [1, 5]
+metrics:
+  binary_classification: { default: roc_auc, supported: [roc_auc, pr_auc, f1, accuracy, balanced_accuracy] }
+  multiclass_classification: { default: f1_macro, supported: [f1_macro, accuracy, balanced_accuracy] }

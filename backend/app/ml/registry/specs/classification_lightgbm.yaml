@@ -1,0 +1,28 @@
+id: classification.lightgbm
+display_name: Gradient Boosting (LightGBM)
+task_types: [binary_classification, multiclass_classification]
+when_to_use: >
+  The default workhorse for tabular classification. Gradient-boosted trees
+  are the strongest known approach for most structured-data problems from a
+  few thousand to millions of rows. Handles non-linearities, interactions,
+  and mixed types. Prefer this unless the dataset is tiny (< 1k rows, where
+  simpler models generalize better) or interpretability of coefficients is
+  the priority.
+preprocessing:
+  numeric: { impute: median, scale: false }
+  categorical: { impute: most_frequent, encode: onehot }
+model:
+  class: lightgbm.LGBMClassifier
+  params: { n_estimators: 300, learning_rate: 0.05, random_state: 42, verbosity: -1 }
+  grid:
+    num_leaves: [15, 31]
+    learning_rate: [0.05, 0.1]
+  fallback:
+    class: sklearn.ensemble.HistGradientBoostingClassifier
+    params: { max_iter: 300, learning_rate: 0.05, random_state: 42 }
+    grid:
+      max_leaf_nodes: [15, 31]
+      learning_rate: [0.05, 0.1]
+metrics:
+  binary_classification: { default: roc_auc, supported: [roc_auc, pr_auc, f1, accuracy, balanced_accuracy] }
+  multiclass_classification: { default: f1_macro, supported: [f1_macro, accuracy, balanced_accuracy] }
