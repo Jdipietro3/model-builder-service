@@ -50,6 +50,20 @@ class Dataset(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
 
+class Prediction(Base):
+    __tablename__ = "predictions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), index=True)
+    filename: Mapped[str] = mapped_column(String(300))
+    n_rows: Mapped[int] = mapped_column(default=0)
+    output_path: Mapped[str] = mapped_column(String(500))
+    # n_rows, class counts / stats, and a small preview for the UI card
+    summary: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
 class Run(Base):
     __tablename__ = "runs"
 

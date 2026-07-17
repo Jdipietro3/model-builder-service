@@ -10,9 +10,10 @@ load_dotenv(BACKEND_DIR / ".env")
 DATA_DIR = Path(os.getenv("DATA_DIR", str(REPO_ROOT / "data")))
 UPLOADS_DIR = DATA_DIR / "uploads"
 ARTIFACTS_DIR = DATA_DIR / "artifacts"
+PREDICTIONS_DIR = DATA_DIR / "predictions"
 DB_PATH = DATA_DIR / "app.db"
 
-for _d in (UPLOADS_DIR, ARTIFACTS_DIR):
+for _d in (UPLOADS_DIR, ARTIFACTS_DIR, PREDICTIONS_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = f"sqlite:///{DB_PATH}"

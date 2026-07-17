@@ -70,6 +70,17 @@ class RunOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PredictionOut(BaseModel):
+    id: str
+    run_id: str
+    filename: str
+    n_rows: int
+    summary: dict[str, Any]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class ChatRequest(BaseModel):
     content: str
     # "user" for typed messages; "system_event" for synthetic notifications
@@ -86,3 +97,4 @@ class ProjectDetail(ProjectOut):
     messages: list[MessageOut]
     datasets: list[DatasetOut]
     runs: list[RunOut]
+    predictions: list[PredictionOut]

@@ -12,9 +12,31 @@ interface CardContext {
   methodologies: Methodology[];
   runStates: Record<string, RunState>;
   onApprove: (runId: string, overrides: Partial<Plan>) => void;
+  /** Rail mode: cards render as small reference chips instead of full cards. */
+  compact?: boolean;
+}
+
+const CHIP_LABELS: Record<string, (card: Card) => string> = {
+  profile: (c) => `Dataset profiled: ${c.filename}`,
+  plan: () => "Training plan proposed",
+  report: () => "Training results ready",
+};
+
+function CardChip({ card }: { card: Card }) {
+  const label = CHIP_LABELS[card.type]?.(card) ?? card.type;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+      {label} — see workspace
+    </span>
+  );
 }
 
 function CardView({ card, ctx }: { card: Card; ctx: CardContext }) {
+  if (ctx.compact) {
+    return <CardChip card={card} />;
+  }
+
   if (card.type === "profile") {
     return (
       <ProfileCard

@@ -24,6 +24,7 @@ app.include_router(projects.router)
 app.include_router(datasets.router)
 app.include_router(chat.router)
 app.include_router(runs.router)
+app.include_router(runs.predictions_router)
 
 
 @app.get("/health")

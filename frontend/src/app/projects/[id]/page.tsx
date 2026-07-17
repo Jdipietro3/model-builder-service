@@ -10,17 +10,81 @@ import {
   Dataset,
   Methodology,
   Plan,
+  Prediction,
   ProjectDetail,
   Run,
 } from "@/lib/api";
 import { MessageView, StreamingMessage } from "@/components/Chat";
+import Workspace from "@/components/Workspace";
 
 export interface RunState {
   status: string;
   progress: Run["progress"];
   results: Run["results"];
   error: string | null;
-  live: boolean; // completed during this session (render live ReportCard)
+  live: boolean; // completed during this session
+}
+
+function Composer({
+  input,
+  setInput,
+  busy,
+  onSend,
+  onUpload,
+  showUpload,
+}: {
+  input: string;
+  setInput: (v: string) => void;
+  busy: boolean;
+  onSend: () => void;
+  onUpload: (f: File) => void;
+  showUpload: boolean;
+}) {
+  return (
+    <div className="flex items-end gap-2">
+      {showUpload && (
+        <label
+          className={`flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-zinc-700 text-zinc-400 transition-colors hover:border-emerald-600 hover:text-emerald-500 ${busy ? "pointer-events-none opacity-40" : ""}`}
+          title="Upload CSV"
+        >
+          <input
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onUpload(f);
+              e.target.value = "";
+            }}
+          />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 16V4m0 0l-4 4m4-4l4 4" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" strokeLinecap="round" />
+          </svg>
+        </label>
+      )}
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            onSend();
+          }
+        }}
+        rows={1}
+        placeholder={busy ? "Working…" : "Ask about your data or model…"}
+        className="max-h-40 min-h-10 flex-1 resize-y rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm outline-none placeholder:text-zinc-500 focus:border-emerald-600"
+      />
+      <button
+        onClick={onSend}
+        disabled={busy || !input.trim()}
+        className="h-10 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+      >
+        Send
+      </button>
+    </div>
+  );
 }
 
 export default function ProjectPage() {
@@ -29,6 +93,8 @@ export default function ProjectPage() {
   const [methodologies, setMethodologies] = useState<Methodology[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [runs, setRuns] = useState<Run[]>([]);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [runStates, setRunStates] = useState<Record<string, RunState>>({});
   const [streamText, setStreamText] = useState<string | null>(null);
   const [streamCards, setStreamCards] = useState<Card[]>([]);
@@ -36,6 +102,8 @@ export default function ProjectPage() {
   const [input, setInput] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const workspaceMode = runs.length > 0;
 
   useEffect(() => {
     if (!id) return;
@@ -45,6 +113,8 @@ export default function ProjectPage() {
         setMethodologies(m);
         setMessages(p.messages.filter((msg) => !msg.hidden));
         setDatasets(p.datasets);
+        setRuns(p.runs);
+        setPredictions(p.predictions);
         const states: Record<string, RunState> = {};
         for (const r of p.runs) {
           states[r.id] = {
@@ -62,7 +132,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamText, streamCards, runStates]);
+  }, [messages, streamText, streamCards]);
 
   const send = useCallback(
     async (content: string, kind: "user" | "system_event" = "user") => {
@@ -91,6 +161,33 @@ export default function ProjectPage() {
         } else if (e.type === "card") {
           cards = [...cards, e.card];
           setStreamCards(cards);
+          if (e.card.type === "plan") {
+            // A proposed plan creates a pending run — surface it in the workspace.
+            const now = new Date().toISOString();
+            const run: Run = {
+              id: e.card.run_id as string,
+              project_id: id,
+              dataset_id: e.card.dataset_id as string,
+              status: "pending_approval",
+              plan: e.card.plan as Plan,
+              progress: null,
+              results: null,
+              error: null,
+              created_at: now,
+              updated_at: now,
+            };
+            setRuns((prev) => (prev.some((r) => r.id === run.id) ? prev : [...prev, run]));
+            setRunStates((prev) => ({
+              ...prev,
+              [run.id]: {
+                status: "pending_approval",
+                progress: null,
+                results: null,
+                error: null,
+                live: false,
+              },
+            }));
+          }
         } else if (e.type === "error") {
           text += `${text ? "\n\n" : ""}⚠ ${e.message}`;
           setStreamText(text);
@@ -154,6 +251,7 @@ export default function ProjectPage() {
     async (runId: string, overrides: Partial<Plan>) => {
       try {
         const run = await api.approveRun(runId, overrides);
+        setRuns((prev) => prev.map((r) => (r.id === runId ? run : r)));
         setRunStates((prev) => ({
           ...prev,
           [runId]: {
@@ -195,6 +293,21 @@ export default function ProjectPage() {
     [send],
   );
 
+  const handlePredict = useCallback(
+    async (runId: string, file: File) => {
+      const p = await api.predict(runId, file);
+      setPredictions((prev) => [...prev, p]);
+    },
+    [],
+  );
+
+  function doSend() {
+    if (input.trim() && !busy) {
+      send(input.trim());
+      setInput("");
+    }
+  }
+
   if (loadError) {
     return (
       <main className="flex flex-1 items-center justify-center p-8">
@@ -205,6 +318,71 @@ export default function ProjectPage() {
     );
   }
 
+  const chatCtx = {
+    datasets,
+    methodologies,
+    runStates,
+    onApprove: approveRun,
+    compact: workspaceMode,
+  };
+
+  const messageList = (
+    <>
+      {messages.map((m) => (
+        <MessageView key={m.id} message={m} {...chatCtx} />
+      ))}
+      {streamText !== null && (
+        <StreamingMessage text={streamText} cards={streamCards} {...chatCtx} />
+      )}
+      <div ref={bottomRef} />
+    </>
+  );
+
+  // ---------- Workspace mode: center workspace + right chat rail ----------
+  if (workspaceMode) {
+    return (
+      <main className="flex h-screen flex-col">
+        <header className="flex shrink-0 items-center gap-3 border-b border-zinc-800 px-6 py-3.5">
+          <Link href="/" className="text-sm text-zinc-500 transition-colors hover:text-zinc-300">
+            ← Projects
+          </Link>
+          <h1 className="text-lg font-semibold">{project?.name ?? "…"}</h1>
+        </header>
+        <div className="flex min-h-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
+            <Workspace
+              datasets={datasets}
+              runs={runs}
+              runStates={runStates}
+              predictions={predictions}
+              methodologies={methodologies}
+              onApprove={approveRun}
+              onPredict={handlePredict}
+              onUploadDataset={handleUpload}
+            />
+          </div>
+          <aside className="flex w-95 shrink-0 flex-col border-l border-zinc-800 bg-zinc-950">
+            <div className="border-b border-zinc-800 px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Assistant
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">{messageList}</div>
+            <div className="border-t border-zinc-800 p-3">
+              <Composer
+                input={input}
+                setInput={setInput}
+                busy={busy}
+                onSend={doSend}
+                onUpload={handleUpload}
+                showUpload={false}
+              />
+            </div>
+          </aside>
+        </div>
+      </main>
+    );
+  }
+
+  // ---------- Triage mode: full-width chat ----------
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-zinc-800 bg-zinc-950/90 py-4 backdrop-blur">
@@ -224,79 +402,18 @@ export default function ProjectPage() {
             </p>
           </div>
         )}
-        {messages.map((m) => (
-          <MessageView
-            key={m.id}
-            message={m}
-            datasets={datasets}
-            methodologies={methodologies}
-            runStates={runStates}
-            onApprove={approveRun}
-          />
-        ))}
-        {streamText !== null && (
-          <StreamingMessage
-            text={streamText}
-            cards={streamCards}
-            datasets={datasets}
-            methodologies={methodologies}
-            runStates={runStates}
-            onApprove={approveRun}
-          />
-        )}
-        <div ref={bottomRef} />
+        {messageList}
       </div>
 
       <footer className="sticky bottom-0 border-t border-zinc-800 bg-zinc-950/90 py-4 backdrop-blur">
-        <div className="flex items-end gap-2">
-          <label
-            className={`flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-zinc-700 text-zinc-400 transition-colors hover:border-emerald-600 hover:text-emerald-500 ${busy ? "pointer-events-none opacity-40" : ""}`}
-            title="Upload CSV"
-          >
-            <input
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleUpload(f);
-                e.target.value = "";
-              }}
-            />
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 16V4m0 0l-4 4m4-4l4 4" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" strokeLinecap="round" />
-            </svg>
-          </label>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (input.trim() && !busy) {
-                  send(input.trim());
-                  setInput("");
-                }
-              }
-            }}
-            rows={1}
-            placeholder={busy ? "Working…" : "Describe your data and what you want to predict…"}
-            className="max-h-40 min-h-10 flex-1 resize-y rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm outline-none placeholder:text-zinc-500 focus:border-emerald-600"
-          />
-          <button
-            onClick={() => {
-              if (input.trim() && !busy) {
-                send(input.trim());
-                setInput("");
-              }
-            }}
-            disabled={busy || !input.trim()}
-            className="h-10 rounded-lg bg-emerald-600 px-5 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
-          >
-            Send
-          </button>
-        </div>
+        <Composer
+          input={input}
+          setInput={setInput}
+          busy={busy}
+          onSend={doSend}
+          onUpload={handleUpload}
+          showUpload
+        />
       </footer>
     </main>
   );

@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from .db import SessionLocal
 from .ml.artifacts import build_bundle
 from .ml.training import run_plan
-from .models import Dataset, Message, Run
+from .models import Dataset, Run
 
 _executor = ThreadPoolExecutor(max_workers=2)
 
@@ -43,15 +43,6 @@ def _execute(run_id: str) -> None:
         run.artifact_path = zip_path
         run.status = "completed"
         run.progress = {"stage": "done", "pct": 100, "message": "Training complete"}
-        # Persist the report as a chat message so it survives page reloads.
-        db.add(
-            Message(
-                project_id=run.project_id,
-                role="assistant",
-                content="",
-                cards=[{"type": "report", "run_id": run.id, "results": run.results}],
-            )
-        )
         db.commit()
     except Exception:
         db.rollback()

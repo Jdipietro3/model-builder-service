@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Dataset, Message, Project, Run
+from ..models import Dataset, Message, Prediction, Project, Run
 from ..schemas import ProjectCreate, ProjectDetail, ProjectOut
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -36,6 +36,11 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
     runs = db.scalars(
         select(Run).where(Run.project_id == project_id).order_by(Run.created_at)
     ).all()
+    predictions = db.scalars(
+        select(Prediction)
+        .where(Prediction.project_id == project_id)
+        .order_by(Prediction.created_at)
+    ).all()
     return ProjectDetail(
         id=project.id,
         name=project.name,
@@ -43,4 +48,5 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
         messages=messages,
         datasets=datasets,
         runs=runs,
+        predictions=predictions,
     )

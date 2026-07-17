@@ -109,10 +109,28 @@ export interface Run {
   updated_at: string;
 }
 
+export interface PredictionSummary {
+  n_rows: number;
+  task_type: string;
+  class_counts?: Record<string, number>;
+  stats?: { mean: number; min: number; max: number };
+  preview: { columns: string[]; rows: string[][] };
+}
+
+export interface Prediction {
+  id: string;
+  run_id: string;
+  filename: string;
+  n_rows: number;
+  summary: PredictionSummary;
+  created_at: string;
+}
+
 export interface ProjectDetail extends Project {
   messages: ChatMessage[];
   datasets: Dataset[];
   runs: Run[];
+  predictions: Prediction[];
 }
 
 export interface Methodology {
@@ -169,6 +187,16 @@ export const api = {
     }).then((r) => json<Run>(r)),
 
   artifactUrl: (runId: string) => `${API}/runs/${runId}/artifact`,
+
+  predict: (runId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return fetch(`${API}/runs/${runId}/predictions`, { method: "POST", body: form }).then(
+      (r) => json<Prediction>(r),
+    );
+  },
+
+  predictionDownloadUrl: (predictionId: string) => `${API}/predictions/${predictionId}/download`,
 
   runEventsUrl: (runId: string) => `${API}/runs/${runId}/events`,
 

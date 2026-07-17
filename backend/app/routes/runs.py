@@ -2,17 +2,20 @@ import asyncio
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
+from ..config import MAX_UPLOAD_MB, PREDICTIONS_DIR
 from ..db import SessionLocal, get_db
 from ..jobs import submit_training
 from ..ml.plans import validate_plan
-from ..models import Dataset, Run
-from ..schemas import ApproveRequest, RunOut
+from ..ml.scoring import load_model, read_csv_bytes, score_dataframe
+from ..models import Dataset, Prediction, Run
+from ..schemas import ApproveRequest, PredictionOut, RunOut
 
 router = APIRouter(prefix="/runs", tags=["runs"])
+predictions_router = APIRouter(prefix="/predictions", tags=["predictions"])
 
 
 @router.get("/{run_id}", response_model=RunOut)
@@ -80,6 +83,62 @@ async def run_events(run_id: str):
         gen(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.post("/{run_id}/predictions", response_model=PredictionOut)
+async def create_prediction(run_id: str, file: UploadFile, db: Session = Depends(get_db)):
+    """Score an uploaded CSV with a completed run's trained model."""
+    run = db.get(Run, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    if run.status != "completed" or not run.artifact_path:
+        raise HTTPException(409, f"Run is '{run.status}' — only completed runs can predict")
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(400, "Only CSV files are supported")
+
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_MB * 1024 * 1024:
+        raise HTTPException(400, f"File exceeds {MAX_UPLOAD_MB} MB limit")
+
+    try:
+        df = read_csv_bytes(content)
+    except Exception as e:
+        raise HTTPException(400, f"Could not parse CSV: {e}")
+
+    try:
+        pipeline, meta = load_model(run)
+        scored, summary = score_dataframe(pipeline, meta, df)
+    except (ValueError, FileNotFoundError) as e:
+        raise HTTPException(400, str(e))
+
+    prediction = Prediction(
+        project_id=run.project_id,
+        run_id=run.id,
+        filename=file.filename,
+        n_rows=summary["n_rows"],
+        output_path="",
+        summary=summary,
+    )
+    out_path = PREDICTIONS_DIR / f"{prediction.id}_scored_{file.filename}"
+    scored.to_csv(out_path, index=False)
+    prediction.output_path = str(out_path)
+    db.add(prediction)
+    db.commit()
+    return prediction
+
+
+@predictions_router.get("/{prediction_id}/download")
+def download_prediction(prediction_id: str, db: Session = Depends(get_db)):
+    prediction = db.get(Prediction, prediction_id)
+    if not prediction:
+        raise HTTPException(404, "Prediction not found")
+    if not Path(prediction.output_path).exists():
+        raise HTTPException(404, "Scored file no longer exists")
+    return FileResponse(
+        prediction.output_path,
+        filename=f"scored_{prediction.filename}",
+        media_type="text/csv",
     )
 
 
