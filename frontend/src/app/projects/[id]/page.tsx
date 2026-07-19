@@ -102,6 +102,12 @@ export default function ProjectPage() {
   const [input, setInput] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Tracks whether the component is still mounted, and mirrors `messages`' ids so
+  // the interpretation poller (started from inside a callback, not an effect) can
+  // dedupe against current state and be torn down cleanly on unmount.
+  const mountedRef = useRef(true);
+  const messageIdsRef = useRef<Set<string>>(new Set());
+  const pollTimersRef = useRef<Set<ReturnType<typeof setInterval>>>(new Set());
 
   const workspaceMode = runs.length > 0;
 
@@ -133,6 +139,53 @@ export default function ProjectPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamText, streamCards]);
+
+  useEffect(() => {
+    messageIdsRef.current = new Set(messages.map((m) => m.id));
+  }, [messages]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      pollTimersRef.current.forEach((t) => clearInterval(t));
+      pollTimersRef.current.clear();
+    };
+  }, []);
+
+  // The training worker generates the results interpretation server-side once a
+  // run completes (see backend/app/jobs.py::_interpret_run), so it lands even if
+  // no client is around when training finishes. Poll briefly for the resulting
+  // hidden-user + assistant message pair instead of triggering it ourselves.
+  const pollForInterpretation = useCallback((projectId: string) => {
+    const startedAt = Date.now();
+    const POLL_INTERVAL_MS = 3000;
+    const TIMEOUT_MS = 90000;
+    const timer: ReturnType<typeof setInterval> = setInterval(async () => {
+      if (!mountedRef.current || Date.now() - startedAt >= TIMEOUT_MS) {
+        clearInterval(timer);
+        pollTimersRef.current.delete(timer);
+        return;
+      }
+      try {
+        const p = await api.getProject(projectId);
+        if (!mountedRef.current) return;
+        const newOnes = p.messages.filter(
+          (msg) => !msg.hidden && !messageIdsRef.current.has(msg.id),
+        );
+        if (newOnes.length > 0) {
+          setMessages((prev) => [...prev, ...newOnes]);
+          if (newOnes.some((msg) => msg.role === "assistant")) {
+            clearInterval(timer);
+            pollTimersRef.current.delete(timer);
+          }
+        }
+      } catch {
+        // Transient fetch error — keep polling until timeout.
+      }
+    }, POLL_INTERVAL_MS);
+    pollTimersRef.current.add(timer);
+  }, []);
 
   const send = useCallback(
     async (content: string, kind: "user" | "system_event" = "user") => {
@@ -278,10 +331,7 @@ export default function ProjectPage() {
           if (data.status === "completed" || data.status === "failed") {
             es.close();
             if (data.status === "completed") {
-              send(
-                `[system notification] Training run ${runId} has completed. Call get_results and give the user a plain-language interpretation: headline metric vs the naive baseline, what drives predictions, and any caveats.`,
-                "system_event",
-              );
+              pollForInterpretation(id);
             }
           }
         };
@@ -290,7 +340,7 @@ export default function ProjectPage() {
         alert(`Could not start training: ${e}`);
       }
     },
-    [send],
+    [id, pollForInterpretation],
   );
 
   const handlePredict = useCallback(

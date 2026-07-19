@@ -1,6 +1,8 @@
 """Background training jobs. A thread pool is plenty for a local prototype;
 swap for Celery/RQ when this needs to scale."""
 
+import asyncio
+import logging
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 
@@ -9,6 +11,9 @@ from .ml.artifacts import build_bundle
 from .ml.registry.loader import get_spec
 from .ml.training import run_plan
 from .models import Dataset, Run
+from .orchestrator.agent import run_turn
+
+logger = logging.getLogger("jobs")
 
 # CPU worker pool. A GPU-backed executor slots in via _select_executor once real
 # GPU methodologies exist; the dispatch structure is here so that swap is local.
@@ -74,6 +79,8 @@ def _execute(run_id: str) -> None:
         run.status = "completed"
         run.progress = {"stage": "done", "pct": 100, "message": "Training complete"}
         db.commit()
+
+        _interpret_run(run)
     except Exception:
         db.rollback()
         run = db.get(Run, run_id)
@@ -83,3 +90,56 @@ def _execute(run_id: str) -> None:
         db.commit()
     finally:
         db.close()
+
+
+def _build_interpretation_notification(run_id: str, plan: dict) -> str:
+    """Build the hidden system-notification text that kicks off the results
+    interpretation turn. Family-aware: forecasting runs get a baseline-vs-seasonal-
+    naive framing, other (supervised) runs get the naive-baseline framing that the
+    frontend used to send verbatim before this became a server-side trigger.
+    """
+    if plan.get("task_family") == "forecasting":
+        return (
+            f"[system notification] Training run {run_id} has completed. Call get_results and "
+            "give the user a plain-language interpretation: the headline metric vs the "
+            "seasonal-naive baseline and whether the model beats it, what the forecast shows "
+            "over the horizon, and any caveats."
+        )
+    return (
+        f"[system notification] Training run {run_id} has completed. Call get_results and give "
+        "the user a plain-language interpretation: headline metric vs the naive baseline, what "
+        "drives predictions, and any caveats."
+    )
+
+
+async def _drain_interpretation_turn(project_id: str, notification: str) -> None:
+    """Run the orchestrator turn to completion against a fresh session, collecting
+    any error events for logging. run_turn persists the hidden user message and the
+    final assistant message itself."""
+    errors: list[str] = []
+    with SessionLocal() as db:
+        async for event in run_turn(db, project_id, notification, hidden=True):
+            if event.get("type") == "error":
+                errors.append(event.get("message", ""))
+    if errors:
+        logger.warning(
+            "Results interpretation turn for project %s reported errors: %s", project_id, errors
+        )
+
+
+def _interpret_run(run: Run) -> None:
+    """Server-side results-interpretation turn for a completed run.
+
+    This replaces the old client-side trigger (the frontend used to open an
+    EventSource on run events and fire this notification itself), so the
+    interpretation lands even if no client is around when training finishes.
+
+    Best-effort only: any failure (missing API key, network error, LLM error, ...)
+    is logged and swallowed. The run row is already committed as "completed" by the
+    caller before this runs, and must not be touched here regardless of outcome.
+    """
+    notification = _build_interpretation_notification(run.id, run.plan)
+    try:
+        asyncio.run(_drain_interpretation_turn(run.project_id, notification))
+    except Exception:
+        logger.warning("Results interpretation failed for run %s", run.id, exc_info=True)
