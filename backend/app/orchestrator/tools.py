@@ -1,167 +1,234 @@
 """Tool definitions and dispatch for the orchestrator.
 
-Each tool maps to deterministic code in app.ml. The dispatcher returns
-(result, card): result goes back to the LLM as the tool_result; card, when
-present, is a structured payload streamed to the UI.
+Each tool maps to deterministic code in app.ml. Tool inputs are pydantic models:
+the Anthropic input_schema is generated from the model, and incoming tool_input
+is validated against it before the handler runs (validation errors go back to
+the LLM as the tool_result so it can self-correct).
+
+The dispatcher returns (result_json, card): result_json goes back to the LLM as
+the tool_result; card, when present, is a structured payload streamed to the UI.
 """
 
 import json
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Callable, get_type_hints
 
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from ..ml.plans import validate_plan
 from ..ml.profiling import profile_csv
 from ..ml.registry.loader import list_methodologies
 from ..models import Dataset, Run
+from ..schemas import TaskType
 
-TOOLS: list[dict[str, Any]] = [
-    {
-        "name": "profile_dataset",
-        "description": (
-            "Get the structured profile of an uploaded dataset: row/column counts, "
-            "per-column type/kind, missingness, unique counts, sample values, "
-            "candidate target columns, and data-quality warnings. Always call this "
-            "before proposing a plan."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {"dataset_id": {"type": "string"}},
-            "required": ["dataset_id"],
-        },
-    },
-    {
-        "name": "list_methodologies",
-        "description": (
-            "List the curated methodology library, optionally filtered by task type. "
-            "Returns each methodology's id, when-to-use guidance, and supported metrics."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "task_type": {
-                    "type": "string",
-                    "enum": ["binary_classification", "multiclass_classification", "regression"],
-                }
-            },
-        },
-    },
-    {
-        "name": "propose_plan",
-        "description": (
-            "Propose a training plan for user approval. Validates the plan against the "
-            "registry and dataset, persists it as a pending run, and shows the user an "
-            "editable plan card. Training does NOT start until the user approves the card."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "dataset_id": {"type": "string"},
-                "task_type": {
-                    "type": "string",
-                    "enum": ["binary_classification", "multiclass_classification", "regression"],
-                },
-                "target_column": {"type": "string"},
-                "methodology_id": {"type": "string"},
-                "excluded_columns": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Columns to exclude from features (IDs, leakage risks, etc.)",
-                },
-                "n_splits": {"type": "integer", "minimum": 2, "maximum": 10},
-                "primary_metric": {"type": "string"},
-                "reasoning": {
-                    "type": "string",
-                    "description": "Why this framing and methodology fit, citing data characteristics.",
-                },
-            },
-            "required": ["dataset_id", "task_type", "target_column", "methodology_id", "primary_metric", "reasoning"],
-        },
-    },
-    {
-        "name": "get_run_status",
-        "description": "Get the current status and progress of a training run.",
-        "input_schema": {
-            "type": "object",
-            "properties": {"run_id": {"type": "string"}},
-            "required": ["run_id"],
-        },
-    },
-    {
-        "name": "get_results",
-        "description": (
-            "Get the full results of a completed training run: CV and holdout metrics, "
-            "baseline comparison, confusion matrix or residuals, feature importances, "
-            "dropped features, and caveats."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {"run_id": {"type": "string"}},
-            "required": ["run_id"],
-        },
-    },
-]
+# ---------------------------------------------------------------------------
+# Tool input models
+
+
+class ToolInput(BaseModel):
+    # extra="forbid" so hallucinated parameters fail validation loudly instead
+    # of being silently dropped.
+    model_config = ConfigDict(extra="forbid")
+
+
+class ProfileDatasetInput(ToolInput):
+    dataset_id: str
+
+
+class ListMethodologiesInput(ToolInput):
+    task_type: TaskType | None = Field(default=None, description="Filter by task type")
+
+
+class ProposePlanInput(ToolInput):
+    dataset_id: str
+    task_type: TaskType
+    target_column: str
+    methodology_id: str
+    excluded_columns: list[str] = Field(
+        default_factory=list,
+        description="Columns to exclude from features (IDs, leakage risks, etc.)",
+    )
+    n_splits: int = Field(default=5, ge=2, le=10)
+    primary_metric: str
+    reasoning: str = Field(
+        description="Why this framing and methodology fit, citing data characteristics."
+    )
+
+
+class GetRunStatusInput(ToolInput):
+    run_id: str
+
+
+class GetResultsInput(ToolInput):
+    run_id: str
+
+
+# ---------------------------------------------------------------------------
+# Registry
+
+Handler = Callable[[Session, str, Any], tuple[Any, dict | None]]
+
+
+@dataclass
+class ToolSpec:
+    name: str
+    description: str
+    input_model: type[BaseModel]
+    handler: Handler
+
+    def to_anthropic(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "input_schema": _clean_schema(self.input_model.model_json_schema()),
+        }
+
+
+def _clean_schema(schema: dict) -> dict:
+    """Trim pydantic's JSON schema down to what Anthropic tool schemas expect."""
+    # Nested models would emit $defs/$ref, which Anthropic handles poorly.
+    # Keep tool inputs flat.
+    assert "$defs" not in schema, f"nested models not supported in tool inputs: {schema}"
+    schema.pop("title", None)
+    for prop in schema.get("properties", {}).values():
+        prop.pop("title", None)
+        # Optional[X] emits anyOf [X, null]; collapse to X — optionality is
+        # already conveyed by absence from `required`.
+        if "anyOf" in prop:
+            branches = [b for b in prop["anyOf"] if b.get("type") != "null"]
+            if len(branches) == 1:
+                prop.pop("anyOf")
+                prop.update(branches[0])
+        prop.pop("default", None)
+    return schema
+
+
+_REGISTRY: dict[str, ToolSpec] = {}  # insertion-ordered -> stable TOOLS order
+
+
+def tool(name: str, description: str) -> Callable[[Handler], Handler]:
+    def deco(fn: Handler) -> Handler:
+        hints = get_type_hints(fn)
+        input_model = next(
+            v
+            for k, v in hints.items()
+            if k != "return" and isinstance(v, type) and issubclass(v, ToolInput)
+        )
+        _REGISTRY[name] = ToolSpec(name, description, input_model, fn)
+        return fn
+
+    return deco
+
+
+# ---------------------------------------------------------------------------
+# Tools. Handlers return (result, card): result is any JSON-serializable
+# object; the dispatcher serializes it.
+
+
+@tool(
+    "profile_dataset",
+    "Get the structured profile of an uploaded dataset: row/column counts, "
+    "per-column type/kind, missingness, unique counts, sample values, "
+    "candidate target columns, and data-quality warnings. Always call this "
+    "before proposing a plan.",
+)
+def profile_dataset(db: Session, project_id: str, args: ProfileDatasetInput):
+    dataset = db.get(Dataset, args.dataset_id)
+    if not dataset or dataset.project_id != project_id:
+        return {"error": "Dataset not found in this project"}, None
+    if dataset.profile is None:
+        dataset.profile = profile_csv(dataset.path)
+        db.commit()
+    return dataset.profile, None
+
+
+@tool(
+    "list_methodologies",
+    "List the curated methodology library, optionally filtered by task type. "
+    "Returns each methodology's id, when-to-use guidance, and supported metrics.",
+)
+def list_methodologies_tool(db: Session, project_id: str, args: ListMethodologiesInput):
+    return list_methodologies(args.task_type), None
+
+
+@tool(
+    "propose_plan",
+    "Propose a training plan for user approval. Validates the plan against the "
+    "registry and dataset, persists it as a pending run, and shows the user an "
+    "editable plan card. Training does NOT start until the user approves the card.",
+)
+def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
+    dataset = db.get(Dataset, args.dataset_id)
+    if not dataset or dataset.project_id != project_id:
+        return {"error": "Dataset not found in this project"}, None
+    plan_data = {
+        "task_type": args.task_type,
+        "target_column": args.target_column,
+        "methodology_id": args.methodology_id,
+        "excluded_columns": args.excluded_columns,
+        "validation": {"n_splits": args.n_splits},
+        "primary_metric": args.primary_metric,
+        "reasoning": args.reasoning,
+    }
+    plan, errors = validate_plan(plan_data, dataset.profile)
+    if errors:
+        return {"error": "Plan validation failed", "details": errors}, None
+    run = Run(project_id=project_id, dataset_id=dataset.id, plan=plan)
+    db.add(run)
+    db.commit()
+    card = {
+        "type": "plan",
+        "run_id": run.id,
+        "dataset_id": dataset.id,
+        "dataset_filename": dataset.filename,
+        "plan": plan,
+    }
+    return {"run_id": run.id, "status": "pending_approval", "plan": plan}, card
+
+
+@tool("get_run_status", "Get the current status and progress of a training run.")
+def get_run_status(db: Session, project_id: str, args: GetRunStatusInput):
+    run = db.get(Run, args.run_id)
+    if not run or run.project_id != project_id:
+        return {"error": "Run not found in this project"}, None
+    return {"run_id": run.id, "status": run.status, "progress": run.progress}, None
+
+
+@tool(
+    "get_results",
+    "Get the full results of a completed training run: CV and holdout metrics, "
+    "baseline comparison, confusion matrix or residuals, feature importances, "
+    "dropped features, and caveats.",
+)
+def get_results(db: Session, project_id: str, args: GetResultsInput):
+    run = db.get(Run, args.run_id)
+    if not run or run.project_id != project_id:
+        return {"error": "Run not found in this project"}, None
+    if run.status != "completed":
+        return {"error": f"Run is '{run.status}', results not available"}, None
+    return run.results, None
+
+
+# ---------------------------------------------------------------------------
+
+TOOLS: list[dict[str, Any]] = [spec.to_anthropic() for spec in _REGISTRY.values()]
 
 
 def dispatch(db: Session, project_id: str, name: str, tool_input: dict) -> tuple[str, dict | None]:
     """Execute a tool call. Returns (result_json, card_or_none). Raises nothing:
     errors are returned as strings so the LLM can adjust."""
-    try:
-        if name == "profile_dataset":
-            dataset = db.get(Dataset, tool_input["dataset_id"])
-            if not dataset or dataset.project_id != project_id:
-                return json.dumps({"error": "Dataset not found in this project"}), None
-            if dataset.profile is None:
-                dataset.profile = profile_csv(dataset.path)
-                db.commit()
-            return json.dumps(dataset.profile), None
-
-        if name == "list_methodologies":
-            return json.dumps(list_methodologies(tool_input.get("task_type"))), None
-
-        if name == "propose_plan":
-            dataset = db.get(Dataset, tool_input["dataset_id"])
-            if not dataset or dataset.project_id != project_id:
-                return json.dumps({"error": "Dataset not found in this project"}), None
-            plan_data = {
-                "task_type": tool_input["task_type"],
-                "target_column": tool_input["target_column"],
-                "methodology_id": tool_input["methodology_id"],
-                "excluded_columns": tool_input.get("excluded_columns", []),
-                "validation": {"n_splits": tool_input.get("n_splits", 5)},
-                "primary_metric": tool_input["primary_metric"],
-                "reasoning": tool_input["reasoning"],
-            }
-            plan, errors = validate_plan(plan_data, dataset.profile)
-            if errors:
-                return json.dumps({"error": "Plan validation failed", "details": errors}), None
-            run = Run(project_id=project_id, dataset_id=dataset.id, plan=plan)
-            db.add(run)
-            db.commit()
-            card = {
-                "type": "plan",
-                "run_id": run.id,
-                "dataset_id": dataset.id,
-                "dataset_filename": dataset.filename,
-                "plan": plan,
-            }
-            return json.dumps({"run_id": run.id, "status": "pending_approval", "plan": plan}), card
-
-        if name == "get_run_status":
-            run = db.get(Run, tool_input["run_id"])
-            if not run or run.project_id != project_id:
-                return json.dumps({"error": "Run not found in this project"}), None
-            return json.dumps({"run_id": run.id, "status": run.status, "progress": run.progress}), None
-
-        if name == "get_results":
-            run = db.get(Run, tool_input["run_id"])
-            if not run or run.project_id != project_id:
-                return json.dumps({"error": "Run not found in this project"}), None
-            if run.status != "completed":
-                return json.dumps({"error": f"Run is '{run.status}', results not available"}), None
-            return json.dumps(run.results), None
-
+    spec = _REGISTRY.get(name)
+    if spec is None:
         return json.dumps({"error": f"Unknown tool: {name}"}), None
+    try:
+        args = spec.input_model.model_validate(tool_input)
+    except ValidationError as e:
+        details = [f"{'.'.join(map(str, err['loc']))}: {err['msg']}" for err in e.errors()]
+        return json.dumps({"error": "Invalid tool input", "details": details}), None
+    try:
+        result, card = spec.handler(db, project_id, args)
+        return json.dumps(result), card
     except Exception as e:  # surface tool bugs to the LLM instead of crashing the turn
         db.rollback()
         return json.dumps({"error": f"Tool execution failed: {e}"}), None

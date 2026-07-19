@@ -1,8 +1,14 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
 from .routes import chat, datasets, projects, runs
+
+# uvicorn only configures its own loggers; give app loggers (e.g. the
+# orchestrator's token-usage lines) a root handler at INFO.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     [%(name)s] %(message)s")
 
 app = FastAPI(title="Model Builder Service", version="0.1.0")
 

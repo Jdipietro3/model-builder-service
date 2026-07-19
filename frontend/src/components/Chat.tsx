@@ -2,6 +2,7 @@
 
 import { Card, ChatMessage, Dataset, Methodology, Plan, Profile, Results } from "@/lib/api";
 import { RunState } from "@/app/projects/[id]/page";
+import Markdown from "./Markdown";
 import ProfileCard from "./cards/ProfileCard";
 import PlanCard from "./cards/PlanCard";
 import TrainingCard from "./cards/TrainingCard";
@@ -90,10 +91,16 @@ function Bubble({ role, text }: { role: string; text: string }) {
     );
   }
   return (
-    <div className="max-w-[95%] whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
-      {text}
+    <div className="max-w-[95%] text-sm leading-relaxed text-zinc-200">
+      <Markdown text={text} />
     </div>
   );
+}
+
+/** Close an unterminated ``` fence so partial streams render as code, not prose. */
+function closeOpenFence(text: string): string {
+  const fences = (text.match(/```/g) ?? []).length;
+  return fences % 2 === 1 ? text + "\n```" : text;
 }
 
 export function MessageView({
@@ -118,8 +125,8 @@ export function StreamingMessage({
   return (
     <div className="space-y-3">
       {text ? (
-        <div className="max-w-[95%] whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
-          {text}
+        <div className="max-w-[95%] text-sm leading-relaxed text-zinc-200">
+          <Markdown text={closeOpenFence(text)} />
           <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-emerald-500 align-text-bottom" />
         </div>
       ) : (

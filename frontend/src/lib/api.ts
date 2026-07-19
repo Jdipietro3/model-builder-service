@@ -13,6 +13,16 @@ export interface ColumnStats {
   std: number;
   min: number;
   max: number;
+  // Present on profiles generated after the enriched profiler.
+  median?: number;
+  p25?: number;
+  p75?: number;
+}
+
+export interface TopValue {
+  value: string;
+  count: number;
+  pct: number;
 }
 
 export interface ColumnInfo {
@@ -24,11 +34,15 @@ export interface ColumnInfo {
   pct_missing: number;
   sample_values: string[];
   stats?: ColumnStats;
+  top_values?: TopValue[];
 }
 
 export interface Profile {
+  // Optional fields only exist on profiles generated after the enriched profiler.
+  modality?: string;
   n_rows: number;
   n_cols: number;
+  sample_rows?: { columns: string[]; rows: string[][]; truncated_cols?: boolean };
   columns: ColumnInfo[];
   target_candidates: string[];
   warnings: string[];

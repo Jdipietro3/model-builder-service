@@ -60,7 +60,9 @@ export default function ProfileCard({
                   {c.pct_missing > 0 ? `${c.pct_missing}%` : "—"}
                 </td>
                 <td className="max-w-64 truncate px-4 py-1.5 font-mono text-zinc-500">
-                  {c.sample_values.join(", ")}
+                  {c.top_values?.length
+                    ? c.top_values.map((t) => `${t.value} (${t.pct}%)`).join(", ")
+                    : c.sample_values.join(", ")}
                 </td>
               </tr>
             ))}
