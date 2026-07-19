@@ -1,5 +1,6 @@
 """Tabular (CSV) profiling."""
 
+import warnings
 from typing import Any
 
 import pandas as pd
@@ -10,6 +11,8 @@ SAMPLE_ROWS = 5
 TOP_VALUES = 5
 MAX_SAMPLE_COLS = 30  # cap sample_rows width for very wide datasets
 MAX_CELL_CHARS = 40  # keep the profile token-compact
+DATE_SAMPLE = 200  # non-null values sniffed when guessing a string date column
+DATE_PARSE_THRESHOLD = 0.9  # fraction that must parse to call a column datetime
 
 
 def load_csv(path: str) -> pd.DataFrame:
@@ -22,6 +25,28 @@ def load_csv(path: str) -> pd.DataFrame:
 def _trunc(value: Any) -> str:
     s = str(value)
     return s if len(s) <= MAX_CELL_CHARS else s[: MAX_CELL_CHARS - 1] + "…"
+
+
+def _looks_like_datetime(s: pd.Series) -> bool:
+    """Cheap sniff for object columns that hold string dates (e.g. "2024-06-01").
+
+    ``load_csv`` is a plain ``read_csv``, so date columns arrive as object dtype and
+    would otherwise fall through to categorical/text/id_like and never reach the
+    timeseries routing signal. We parse a small non-null sample and accept the column
+    as datetime only if most values parse AND they are not plain numbers — a column of
+    "1" / "2.5" must stay numeric-looking, not become a timestamp.
+    """
+    sample = s.dropna().head(DATE_SAMPLE)
+    if sample.empty:
+        return False
+    # Guard: values that parse as plain numbers are not dates.
+    numeric = pd.to_numeric(sample, errors="coerce")
+    if numeric.notna().mean() >= DATE_PARSE_THRESHOLD:
+        return False
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        parsed = pd.to_datetime(sample, errors="coerce", format="mixed")
+    return parsed.notna().mean() >= DATE_PARSE_THRESHOLD
 
 
 def _classify_column(s: pd.Series, n_rows: int) -> str:
@@ -38,6 +63,10 @@ def _classify_column(s: pd.Series, n_rows: int) -> str:
     if pd.api.types.is_datetime64_any_dtype(s):
         return "datetime"
     # Object/string columns
+    # String dates ("2024-06-01") classify as datetime before the categorical/
+    # id_like/text fallthrough, so they surface in time_column_candidates.
+    if _looks_like_datetime(s):
+        return "datetime"
     if n_rows > 0 and n_unique >= 0.98 * s.notna().sum():
         return "id_like"
     if n_unique <= max(30, int(0.05 * n_rows)):

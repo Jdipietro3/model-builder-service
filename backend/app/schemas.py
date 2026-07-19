@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-TaskType = Literal["binary_classification", "multiclass_classification", "regression"]
+TaskType = Literal["binary_classification", "multiclass_classification", "regression", "forecasting"]
 DataShape = Literal["tabular", "timeseries", "text", "image"]
 TaskFamily = Literal["supervised", "forecasting", "clustering", "anomaly"]
 
@@ -41,7 +41,7 @@ class DatasetOut(BaseModel):
 
 
 class ValidationSpec(BaseModel):
-    strategy: Literal["kfold", "stratified_kfold"] = "stratified_kfold"
+    strategy: Literal["kfold", "stratified_kfold", "time_ordered"] = "stratified_kfold"
     n_splits: int = Field(default=5, ge=2, le=10)
 
 
@@ -54,6 +54,8 @@ class Plan(BaseModel):
     # Unsupervised families have no target; supervised validation still requires it
     # (see ml/plans.py).
     target_column: str | None = None
+    time_column: str | None = None  # forecasting-only: the timestamp axis
+    horizon: int | None = None  # forecasting-only: number of future periods to predict
     methodology_id: str
     excluded_columns: list[str] = Field(default_factory=list)
     validation: ValidationSpec = Field(default_factory=ValidationSpec)

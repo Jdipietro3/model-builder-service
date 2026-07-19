@@ -1,0 +1,20 @@
+id: forecasting.prophet
+display_name: Prophet (additive time-series model)
+task_types: [forecasting]
+data_shape: timeseries
+task_family: forecasting
+compute: { device: cpu }
+when_to_use: >
+  A strong default for business time series with trend and weekly/yearly
+  seasonality. Robust to missing periods and outliers, needs little tuning, and
+  produces uncertainty intervals out of the box. Univariate — it models the
+  target's own history and ignores other columns.
+preprocessing:
+  timeseries: { framing: prophet }
+model:
+  class: prophet.Prophet
+  params: { interval_width: 0.8 }
+  grid:
+    changepoint_prior_scale: [0.05, 0.5]
+metrics:
+  forecasting: { default: mase, supported: [mase, mape, smape, rmse, mae] }

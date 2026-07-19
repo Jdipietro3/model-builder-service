@@ -49,11 +49,58 @@ def _validate_supervised(
             )
 
 
+def _validate_forecasting(
+    plan: Plan, spec: dict[str, Any], profile: dict[str, Any], errors: list[str]
+) -> None:
+    """Forecasting checks: a datetime time axis, a numeric target, and a sane horizon."""
+    if plan.task_type not in spec["task_types"]:
+        errors.append(
+            f"Methodology '{plan.methodology_id}' does not support task type '{plan.task_type}' "
+            f"(supports: {', '.join(spec['task_types'])})"
+        )
+
+    columns = {c["name"]: c for c in profile["columns"]}
+    if not plan.time_column:
+        errors.append("time_column is required for forecasting task_family")
+    elif plan.time_column not in columns:
+        errors.append(f"Time column '{plan.time_column}' not found in dataset")
+    elif columns[plan.time_column]["kind"] != "datetime":
+        errors.append(
+            f"Time column '{plan.time_column}' was not recognized as dates "
+            f"(kind '{columns[plan.time_column]['kind']}'); it must hold parseable timestamps"
+        )
+
+    if not plan.target_column:
+        errors.append("target_column is required for forecasting task_family")
+    elif plan.target_column not in columns:
+        errors.append(f"Target column '{plan.target_column}' not found in dataset")
+    elif columns[plan.target_column]["kind"] != "numeric":
+        errors.append(
+            f"Target column '{plan.target_column}' must be a numeric series to forecast "
+            f"(kind '{columns[plan.target_column]['kind']}')"
+        )
+
+    max_horizon = max(1, profile["n_rows"] // 3)
+    if plan.horizon is None:
+        errors.append("horizon is required for forecasting task_family")
+    elif not (1 <= plan.horizon <= max_horizon):
+        errors.append(
+            f"horizon must be between 1 and {max_horizon} for a dataset with "
+            f"{profile['n_rows']} rows (got {plan.horizon})"
+        )
+
+    supported = spec["metrics"]["forecasting"]["supported"]
+    if plan.primary_metric not in supported:
+        errors.append(
+            f"Metric '{plan.primary_metric}' not supported for forecasting "
+            f"with this methodology (supported: {', '.join(supported)})"
+        )
+
+
 def _not_yet_runnable(family: str) -> FamilyValidator:
     """Stub validator for families whose runners are scaffolds.
 
     The real validators land with their runners:
-    - forecasting: require a time_column + horizon; time-ordered split.
     - clustering / anomaly: no target_column; validate intrinsic metric choice.
     """
 
@@ -69,7 +116,7 @@ def _not_yet_runnable(family: str) -> FamilyValidator:
 
 _FAMILY_VALIDATORS: dict[str, FamilyValidator] = {
     "supervised": _validate_supervised,
-    "forecasting": _not_yet_runnable("forecasting"),
+    "forecasting": _validate_forecasting,
     "clustering": _not_yet_runnable("clustering"),
     "anomaly": _not_yet_runnable("anomaly"),
 }

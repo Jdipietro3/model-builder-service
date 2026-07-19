@@ -54,6 +54,15 @@ class ProposePlanInput(ToolInput):
         default=None,
         description="Target/label column. Required for supervised tasks; omit for unsupervised.",
     )
+    time_column: str | None = Field(
+        default=None,
+        description="For forecasting plans: the timestamp column that defines the time axis.",
+    )
+    horizon: int | None = Field(
+        default=None,
+        ge=1,
+        description="For forecasting plans: the number of future periods to predict.",
+    )
     methodology_id: str
     excluded_columns: list[str] = Field(
         default_factory=list,
@@ -191,14 +200,20 @@ def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
     except KeyError:
         data_shape = args.data_shape or "tabular"
         task_family = args.task_family or "supervised"
+    if task_family == "forecasting":
+        validation = {"n_splits": args.n_splits, "strategy": "time_ordered"}
+    else:
+        validation = {"n_splits": args.n_splits}
     plan_data = {
         "task_type": args.task_type,
         "data_shape": data_shape,
         "task_family": task_family,
         "target_column": args.target_column,
+        "time_column": args.time_column,
+        "horizon": args.horizon,
         "methodology_id": args.methodology_id,
         "excluded_columns": args.excluded_columns,
-        "validation": {"n_splits": args.n_splits},
+        "validation": validation,
         "primary_metric": args.primary_metric,
         "reasoning": args.reasoning,
     }

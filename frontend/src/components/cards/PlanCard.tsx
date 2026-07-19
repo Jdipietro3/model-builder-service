@@ -28,14 +28,25 @@ export default function PlanCard({
   status: string;
   onApprove: (runId: string, overrides: Partial<Plan>) => void;
 }) {
+  const isForecasting = plan.task_type === "forecasting";
+
   const [target, setTarget] = useState(plan.target_column);
   const [methodologyId, setMethodologyId] = useState(plan.methodology_id);
   const [metric, setMetric] = useState(plan.primary_metric);
   const [excluded, setExcluded] = useState<string[]>(plan.excluded_columns);
   const [showExclusions, setShowExclusions] = useState(false);
+  const [timeColumn, setTimeColumn] = useState(plan.time_column ?? "");
+  const [horizon, setHorizon] = useState(plan.horizon ?? 1);
 
   const editable = status === "pending_approval";
   const columns = profile?.columns.map((c) => c.name) ?? [plan.target_column];
+
+  // Time-column candidates: datetime-kind columns; fall back to all columns if
+  // none are marked (older profiles or ambiguous data).
+  const datetimeColumns =
+    profile?.columns.filter((c) => c.kind === "datetime").map((c) => c.name) ?? [];
+  const timeColumnOptions = datetimeColumns.length > 0 ? [...datetimeColumns] : [...columns];
+  if (timeColumn && !timeColumnOptions.includes(timeColumn)) timeColumnOptions.unshift(timeColumn);
   const compatible = useMemo(
     () => methodologies.filter((m) => m.task_types.includes(plan.task_type)),
     [methodologies, plan.task_type],
@@ -118,6 +129,39 @@ export default function PlanCard({
             ))}
           </select>
         </div>
+        {isForecasting && (
+          <div>
+            <div className="mb-1 text-xs text-zinc-500">Time column</div>
+            <select
+              value={timeColumn}
+              onChange={(e) => setTimeColumn(e.target.value)}
+              disabled={!editable}
+              className={selectCls}
+            >
+              {timeColumnOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {isForecasting && (
+          <div>
+            <div className="mb-1 text-xs text-zinc-500">Horizon (periods to forecast)</div>
+            <input
+              type="number"
+              min={1}
+              value={horizon}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                setHorizon(Number.isNaN(v) ? 1 : Math.max(1, v));
+              }}
+              disabled={!editable}
+              className={selectCls}
+            />
+          </div>
+        )}
       </div>
 
       <div className="px-4 pb-3">
@@ -169,7 +213,9 @@ export default function PlanCard({
       {editable && (
         <div className="flex items-center justify-between border-t border-zinc-800 bg-zinc-900 px-4 py-3">
           <span className="text-xs text-zinc-500">
-            {plan.validation.n_splits}-fold cross-validation + 20% holdout
+            {isForecasting
+              ? `${plan.validation.n_splits} validation folds (rolling-origin backtest) + holdout window`
+              : `${plan.validation.n_splits}-fold cross-validation + 20% holdout`}
           </span>
           <button
             onClick={() =>
@@ -178,6 +224,7 @@ export default function PlanCard({
                 methodology_id: methodologyId,
                 primary_metric: metric,
                 excluded_columns: excluded,
+                ...(isForecasting ? { time_column: timeColumn || null, horizon } : {}),
               })
             }
             className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"

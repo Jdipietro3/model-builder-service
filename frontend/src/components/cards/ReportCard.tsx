@@ -8,7 +8,8 @@ const SEQ_HUE = "#3987e5";
 const GOOD = "#0ca30c";
 const BAD = "#e66767";
 
-const LOWER_BETTER = new Set(["mae", "rmse"]);
+// All forecasting metrics (mase/mape/smape) are lower-is-better, like mae/rmse.
+const LOWER_BETTER = new Set(["mae", "rmse", "mase", "mape", "smape"]);
 const METRIC_LABELS: Record<string, string> = {
   roc_auc: "ROC-AUC",
   pr_auc: "PR-AUC",
@@ -19,7 +20,15 @@ const METRIC_LABELS: Record<string, string> = {
   r2: "R²",
   mae: "MAE",
   rmse: "RMSE",
+  mase: "MASE",
+  mape: "MAPE",
+  smape: "sMAPE",
 };
+
+// Chart palette (mirrors the tokens used by ImportanceBars / ConfusionMatrix).
+const ACTUAL_HUE = "#d4d4d8"; // zinc-300 — observed values
+const PRED_HUE = "#3987e5"; // blue — backtest predictions
+const FORECAST_HUE = "#10b981"; // emerald — future forecast
 
 function fmt(v: number): string {
   if (Math.abs(v) >= 1000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -66,7 +75,7 @@ function MetricTile({
   );
 }
 
-function ImportanceBars({ items }: { items: Results["feature_importances"] }) {
+function ImportanceBars({ items }: { items: NonNullable<Results["feature_importances"]> }) {
   const top = items.filter((i) => i.importance > 0).slice(0, 8);
   if (top.length === 0) return null;
   const max = Math.max(...top.map((i) => i.importance));
@@ -157,10 +166,201 @@ function ConfusionMatrix({ labels, matrix }: { labels: string[]; matrix: number[
   );
 }
 
+function LegendSwatch({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
+      <span
+        className="inline-block h-0.5 w-4 rounded"
+        style={dashed ? { borderTop: `2px dashed ${color}`, height: 0 } : { background: color }}
+      />
+      {label}
+    </span>
+  );
+}
+
+/**
+ * Hand-rolled inline SVG forecast chart (no chart library). Draws, along a shared
+ * index-scaled time axis: history_tail actuals + holdout actual/predicted +
+ * forecast yhat, with shaded prediction-interval bands and a divider at the
+ * point where the forecast (future) begins. Any missing/empty block is skipped.
+ */
+function ForecastChart({ results }: { results: Results }) {
+  const hist = results.history_tail;
+  const ho = results.holdout_series;
+  const fc = results.forecast;
+
+  const histLen = hist?.actual?.length ?? 0;
+  const holdoutLen = ho?.actual?.length ?? 0;
+  const forecastLen = fc?.yhat?.length ?? 0;
+  const N = histLen + holdoutLen + forecastLen;
+  if (N < 2) return null; // nothing meaningful to plot
+
+  // Layout (viewBox coordinates; rendered responsively at 100% width).
+  const W = 720;
+  const H = 260;
+  const padL = 48;
+  const padR = 12;
+  const padT = 12;
+  const padB = 24;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  // Collect every finite y-value to derive the value scale.
+  const ys: number[] = [];
+  if (hist) ys.push(...hist.actual);
+  if (ho) ys.push(...ho.actual, ...ho.predicted, ...ho.lower, ...ho.upper);
+  if (fc) ys.push(...fc.yhat, ...fc.lower, ...fc.upper);
+  const finite = ys.filter((v) => Number.isFinite(v));
+  if (finite.length === 0) return null;
+  let min = Math.min(...finite);
+  let max = Math.max(...finite);
+  if (min === max) {
+    // Degenerate flat series — pad so the line renders mid-plot.
+    min -= 1;
+    max += 1;
+  }
+  const range = max - min;
+
+  const x = (i: number) => padL + (N === 1 ? 0 : (i / (N - 1)) * plotW);
+  const y = (v: number) => padT + (1 - (v - min) / range) * plotH;
+
+  const linePts = (startIdx: number, vals: number[]) =>
+    vals.map((v, k) => `${x(startIdx + k)},${y(v)}`).join(" ");
+
+  const bandPath = (startIdx: number, lower: number[], upper: number[]) => {
+    const top = upper.map((v, k) => `${x(startIdx + k)},${y(v)}`);
+    const bot = lower.map((v, k) => `${x(startIdx + k)},${y(v)}`).reverse();
+    if (top.length === 0) return "";
+    return `M ${[...top, ...bot].join(" L ")} Z`;
+  };
+
+  const holdoutStart = histLen;
+  const forecastStart = histLen + holdoutLen;
+
+  // Contiguous observed line: history actuals followed by holdout actuals.
+  const actualVals = [...(hist?.actual ?? []), ...(ho?.actual ?? [])];
+
+  // Bridge the forecast line back to the last observed point for continuity.
+  const lastActual =
+    ho && ho.actual.length ? ho.actual[ho.actual.length - 1] : hist && hist.actual.length ? hist.actual[hist.actual.length - 1] : undefined;
+  const fcLineStart = forecastLen && lastActual !== undefined ? forecastStart - 1 : forecastStart;
+  const fcLineVals =
+    forecastLen && lastActual !== undefined ? [lastActual, ...(fc?.yhat ?? [])] : fc?.yhat ?? [];
+
+  // Y ticks (4 evenly spaced labels).
+  const ticks = [0, 1, 2, 3].map((k) => min + (range * k) / 3);
+
+  // Divider at the start of the future (between last holdout and first forecast).
+  const showDivider = forecastLen > 0 && forecastStart > 0;
+  const xDivider = showDivider ? (x(forecastStart - 1) + x(forecastStart)) / 2 : 0;
+
+  const firstTs =
+    hist?.timestamps?.[0] ?? ho?.timestamps?.[0] ?? fc?.timestamps?.[0] ?? "";
+  const lastArr = fc?.timestamps ?? ho?.timestamps ?? hist?.timestamps ?? [];
+  const lastTs = lastArr[lastArr.length - 1] ?? "";
+  const dateLabel = (s: string) => (s ? s.slice(0, 10) : "");
+
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Forecast</h4>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <LegendSwatch color={ACTUAL_HUE} label="Actual" />
+          {holdoutLen > 0 && <LegendSwatch color={PRED_HUE} label="Backtest" />}
+          {forecastLen > 0 && <LegendSwatch color={FORECAST_HUE} label="Forecast" />}
+          <LegendSwatch color="#52525b" label="Interval" />
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="overflow-visible" role="img" aria-label="Forecast chart">
+        {/* Y grid + tick labels */}
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} stroke="#27272a" strokeWidth={1} />
+            <text
+              x={padL - 6}
+              y={y(t)}
+              textAnchor="end"
+              dominantBaseline="middle"
+              fontSize={10}
+              fill="#71717a"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {fmt(t)}
+            </text>
+          </g>
+        ))}
+
+        {/* Prediction-interval bands */}
+        {ho && ho.lower.length > 0 && (
+          <path d={bandPath(holdoutStart, ho.lower, ho.upper)} fill="rgba(57,135,229,0.14)" stroke="none" />
+        )}
+        {fc && fc.lower.length > 0 && (
+          <path d={bandPath(forecastStart, fc.lower, fc.upper)} fill="rgba(16,185,129,0.14)" stroke="none" />
+        )}
+
+        {/* Divider where the future begins */}
+        {showDivider && (
+          <line
+            x1={xDivider}
+            x2={xDivider}
+            y1={padT}
+            y2={H - padB}
+            stroke="#52525b"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+          />
+        )}
+
+        {/* Observed (history + holdout actuals) */}
+        {actualVals.length > 0 && (
+          <polyline
+            points={linePts(0, actualVals)}
+            fill="none"
+            stroke={ACTUAL_HUE}
+            strokeWidth={1.75}
+            strokeLinejoin="round"
+          />
+        )}
+        {/* Backtest predictions over the holdout window */}
+        {ho && ho.predicted.length > 0 && (
+          <polyline
+            points={linePts(holdoutStart, ho.predicted)}
+            fill="none"
+            stroke={PRED_HUE}
+            strokeWidth={1.75}
+            strokeLinejoin="round"
+          />
+        )}
+        {/* Future forecast */}
+        {fcLineVals.length > 0 && (
+          <polyline
+            points={linePts(fcLineStart, fcLineVals)}
+            fill="none"
+            stroke={FORECAST_HUE}
+            strokeWidth={1.75}
+            strokeDasharray="5 3"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {/* X endpoints */}
+        <text x={padL} y={H - 6} textAnchor="start" fontSize={10} fill="#71717a">
+          {dateLabel(firstTs)}
+        </text>
+        <text x={W - padR} y={H - 6} textAnchor="end" fontSize={10} fill="#71717a">
+          {dateLabel(lastTs)}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
 export default function ReportCard({ runId, results }: { runId: string; results: Results }) {
   const { holdout } = results;
   const primary = results.primary_metric;
   const secondary = Object.keys(holdout.metrics).filter((m) => m !== primary);
+  const isForecasting =
+    results.task_family === "forecasting" || results.task_type === "forecasting";
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
@@ -172,7 +372,7 @@ export default function ReportCard({ runId, results }: { runId: string; results:
           <span className="text-sm text-zinc-300">{results.methodology.display_name}</span>
           <span className="text-xs text-zinc-500">
             trained in {results.training_seconds}s · {results.n_train.toLocaleString()} train /{" "}
-            {results.n_test.toLocaleString()} test rows
+            {results.n_test.toLocaleString()} {isForecasting ? "holdout points" : "test rows"}
           </span>
         </div>
         <a
@@ -202,18 +402,22 @@ export default function ReportCard({ runId, results }: { runId: string; results:
           ))}
         </div>
         <p className="text-xs text-zinc-500">
-          Baseline = {holdout.baseline_description}. Cross-validation {results.cv.metric}:{" "}
-          {fmt(results.cv.mean)} ± {fmt(results.cv.std)} over {results.cv.n_splits} folds.
+          Baseline = {holdout.baseline_description}.{" "}
+          {isForecasting ? "Rolling-origin backtest" : "Cross-validation"} {results.cv.metric}:{" "}
+          {fmt(results.cv.mean)} ± {fmt(results.cv.std)} over {results.cv.n_splits}{" "}
+          {isForecasting ? "backtest folds" : "folds"}.
         </p>
 
-        {holdout.confusion_matrix && (
+        {isForecasting && <ForecastChart results={results} />}
+
+        {!isForecasting && holdout.confusion_matrix && (
           <ConfusionMatrix
             labels={holdout.confusion_matrix.labels}
             matrix={holdout.confusion_matrix.matrix}
           />
         )}
 
-        {holdout.residuals && (
+        {!isForecasting && holdout.residuals && (
           <div>
             <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
               Prediction errors (residuals)
@@ -227,9 +431,11 @@ export default function ReportCard({ runId, results }: { runId: string; results:
           </div>
         )}
 
-        <ImportanceBars items={results.feature_importances} />
+        {!isForecasting && results.feature_importances && (
+          <ImportanceBars items={results.feature_importances} />
+        )}
 
-        {results.features_dropped.length > 0 && (
+        {!isForecasting && results.features_dropped && results.features_dropped.length > 0 && (
           <p className="text-xs text-zinc-500">
             Not used as features:{" "}
             {results.features_dropped.map((f) => `${f.name} (${f.reason})`).join(", ")}

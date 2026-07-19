@@ -30,6 +30,16 @@ def score_dataframe(pipeline, meta: dict, df: pd.DataFrame) -> tuple[pd.DataFram
     All training-time feature columns must be present — a silently-imputed
     all-NaN column would produce garbage predictions. Extra columns pass through.
     """
+    # Tags default so bundles trained before schema v2 still score. This is the
+    # supervised predictor; other families dispatch on task_family here.
+    data_shape = meta.get("data_shape", "tabular")  # noqa: F841 — reserved for family dispatch
+    task_family = meta.get("task_family", "supervised")
+    if task_family == "forecasting":
+        raise ValueError(
+            "Batch scoring is not applicable to forecasting runs — the training results "
+            "include the future forecast."
+        )
+
     feature_cols = meta["feature_columns"]
     missing = [c for c in feature_cols if c not in df.columns]
     if missing:
@@ -38,11 +48,6 @@ def score_dataframe(pipeline, meta: dict, df: pd.DataFrame) -> tuple[pd.DataFram
         )
     if len(df) == 0:
         raise ValueError("Uploaded CSV has no rows")
-
-    # Tags default so bundles trained before schema v2 still score. This is the
-    # supervised predictor; future families would dispatch on task_family here.
-    data_shape = meta.get("data_shape", "tabular")  # noqa: F841 — reserved for family dispatch
-    task_family = meta.get("task_family", "supervised")  # noqa: F841
 
     X = df[feature_cols]
     preds = pipeline.predict(X)

@@ -247,7 +247,8 @@ export default function Workspace({
         </div>
       </section>
 
-      {status === "completed" && (
+      {/* Batch scoring doesn't apply to forecasting runs (the backend rejects it). */}
+      {status === "completed" && selected.plan.task_type !== "forecasting" && (
         <PredictSection run={selected} predictions={predictions} onPredict={onPredict} />
       )}
 

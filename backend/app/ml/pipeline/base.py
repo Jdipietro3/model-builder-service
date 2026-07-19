@@ -30,9 +30,38 @@ spine of keys::
     }
 
 Family-specific detail keys (e.g. ``holdout`` / ``confusion_matrix`` for supervised,
-``backtest`` / ``horizon`` for forecasting, ``clusters`` for clustering) are allowed
-alongside the common spine. The frontend keys off ``task_family`` to decide which
-detail keys to expect.
+``clusters`` for clustering) are allowed alongside the common spine. The frontend
+keys off ``task_family`` to decide which detail keys to expect.
+
+Forecasting envelope (``task_family == "forecasting"``, ``data_shape == "timeseries"``)::
+
+    {
+        "methodology":   {"id": ..., "display_name": ...},
+        "task_type":     "forecasting",
+        "data_shape":    "timeseries",
+        "task_family":   "forecasting",
+        "target_column": ..., "time_column": ...,
+        "horizon":       <int future periods>,
+        "freq":          <pandas freq string or None>,
+        "primary_metric": <friendly metric name; all forecasting metrics lower-is-better>,
+        "best_params":   {...},
+        "cv":            {"metric", "mean", "std", "n_splits"},   # rolling-origin backtest
+        "holdout": {
+            "metrics":            {mase, mape, smape, rmse, mae},
+            "baseline_metrics":   {...},                          # seasonal-naive
+            "baseline_description": "Seasonal-naive baseline (... m=<period>)",
+        },
+        "holdout_series": {"timestamps", "actual", "predicted", "lower", "upper"},
+        "forecast":       {"timestamps", "yhat", "lower", "upper"},   # future horizon
+        "history_tail":   {"timestamps", "actual"},                  # last min(3*horizon, n) rows
+        "caveats":        [...],
+        "n_train":        <int>, "n_test": <int == horizon>,
+        "training_seconds": <float>,
+    }
+
+All timestamps are ISO strings and all series are plain lists of rounded floats, so the
+whole dict is JSON-serialisable (it is stored in a JSON column). The frontend keys off
+``task_family`` to decide which detail keys to expect.
 """
 
 from dataclasses import dataclass, field

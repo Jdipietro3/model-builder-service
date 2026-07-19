@@ -1,0 +1,30 @@
+id: classification.xgboost
+display_name: Gradient Boosting (XGBoost)
+task_types: [binary_classification, multiclass_classification]
+data_shape: tabular
+task_family: supervised
+compute: { device: cpu }
+when_to_use: >
+  Gradient-boosted trees with comparable accuracy to LightGBM on tabular data
+  and strong regularization defaults. XGBoost is the most widely deployed
+  gradient-boosting library, so prefer it when the team already standardizes on
+  it or wants the most battle-tested implementation. LightGBM is typically
+  faster on wide or very large datasets; reach for it there instead.
+preprocessing:
+  numeric: { impute: median, scale: false }
+  categorical: { impute: most_frequent, encode: onehot }
+model:
+  class: xgboost.XGBClassifier
+  params: { n_estimators: 300, learning_rate: 0.05, max_depth: 6, tree_method: hist, eval_metric: logloss, random_state: 42 }
+  grid:
+    max_depth: [3, 6]
+    learning_rate: [0.05, 0.1]
+  fallback:
+    class: sklearn.ensemble.HistGradientBoostingClassifier
+    params: { max_iter: 300, learning_rate: 0.05, random_state: 42 }
+    grid:
+      max_depth: [3, 6]
+      learning_rate: [0.05, 0.1]
+metrics:
+  binary_classification: { default: roc_auc, supported: [roc_auc, pr_auc, f1, accuracy, balanced_accuracy] }
+  multiclass_classification: { default: f1_macro, supported: [f1_macro, accuracy, balanced_accuracy] }

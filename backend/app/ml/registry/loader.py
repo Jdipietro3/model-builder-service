@@ -11,6 +11,7 @@ every downstream consumer indexes the spec as a mapping
 """
 
 import importlib
+import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
@@ -19,6 +20,8 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 SPECS_DIR = Path(__file__).resolve().parent / "specs"
+
+logger = logging.getLogger(__name__)
 
 
 class ComputeSpec(BaseModel):
@@ -58,11 +61,19 @@ class MethodologySpec(BaseModel):
                     raise ValueError(
                         f"preprocessing.{group}.impute (str) is required for tabular data_shape"
                     )
+        elif self.data_shape == "timeseries":
+            # Forecasting specs frame the series one of two ways; extra keys
+            # (lags, rolling_windows, calendar_features) ride alongside framing.
+            ts = self.preprocessing.get("timeseries")
+            if not isinstance(ts, dict) or ts.get("framing") not in ("prophet", "lag_features"):
+                raise ValueError(
+                    "preprocessing.timeseries.framing must be 'prophet' or 'lag_features' "
+                    "for timeseries data_shape"
+                )
         # Reserved preprocessing sub-shapes for future data_shapes (not yet enforced —
         # no specs exist for them). Planned keys:
-        #   timeseries: window, horizon, freq, scaling
-        #   text:       tokenizer, max_length, vectorizer
-        #   image:      resize, normalize, augmentation
+        #   text:  tokenizer, max_length, vectorizer
+        #   image: resize, normalize, augmentation
 
         if self.task_family == "supervised":
             # Each declared task_type must have a metrics entry.
@@ -74,18 +85,22 @@ class MethodologySpec(BaseModel):
         return self
 
 
-def _lightgbm_available() -> bool:
-    try:
-        importlib.import_module("lightgbm")
-        return True
-    except ImportError:
-        return False
+_module_available_cache: dict[str, bool] = {}
+
+
+def _module_available(module_name: str) -> bool:
+    if module_name not in _module_available_cache:
+        try:
+            importlib.import_module(module_name)
+            _module_available_cache[module_name] = True
+        except ImportError:
+            _module_available_cache[module_name] = False
+    return _module_available_cache[module_name]
 
 
 @lru_cache(maxsize=1)
 def load_registry() -> dict[str, dict[str, Any]]:
     registry: dict[str, dict[str, Any]] = {}
-    use_fallback = not _lightgbm_available()
     for path in sorted(SPECS_DIR.glob("*.yaml")):
         with open(path, encoding="utf-8") as f:
             raw = yaml.safe_load(f)
@@ -93,12 +108,22 @@ def load_registry() -> dict[str, dict[str, Any]]:
             spec = MethodologySpec(**(raw or {})).model_dump()
         except (ValidationError, TypeError) as e:
             raise ValueError(f"Invalid spec {path.name}: {e}") from e
-        # If LightGBM isn't installed, transparently swap in the declared
-        # sklearn fallback so the methodology slot still works.
-        if use_fallback and "fallback" in spec["model"]:
-            fb = spec["model"]["fallback"]
-            spec["model"] = {"class": fb["class"], "params": fb.get("params", {}), "grid": fb.get("grid", {})}
-            spec["display_name"] += " (sklearn fallback)"
+        module_name = spec["model"]["class"].split(".")[0]
+        if not _module_available(module_name):
+            if "fallback" in spec["model"]:
+                # Library missing but a sklearn fallback is declared: swap it in
+                # so the methodology slot still works.
+                fb = spec["model"]["fallback"]
+                spec["model"] = {"class": fb["class"], "params": fb.get("params", {}), "grid": fb.get("grid", {})}
+                spec["display_name"] += " (sklearn fallback)"
+            else:
+                # No fallback: the spec is unusable on this machine — drop it.
+                logger.warning(
+                    "Excluding spec '%s': required module '%s' is not installed",
+                    spec["id"],
+                    module_name,
+                )
+                continue
         registry[spec["id"]] = spec
     return registry
 

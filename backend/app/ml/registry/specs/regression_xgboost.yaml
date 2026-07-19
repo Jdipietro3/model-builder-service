@@ -1,0 +1,29 @@
+id: regression.xgboost
+display_name: Gradient Boosting Regressor (XGBoost)
+task_types: [regression]
+data_shape: tabular
+task_family: supervised
+compute: { device: cpu }
+when_to_use: >
+  Gradient-boosted trees for tabular regression with accuracy comparable to
+  LightGBM and strong regularization defaults. XGBoost is the most widely
+  deployed gradient-boosting library, so prefer it when the team already
+  standardizes on it or wants the most battle-tested implementation. LightGBM
+  is typically faster on wide or very large datasets; reach for it there instead.
+preprocessing:
+  numeric: { impute: median, scale: false }
+  categorical: { impute: most_frequent, encode: onehot }
+model:
+  class: xgboost.XGBRegressor
+  params: { n_estimators: 300, learning_rate: 0.05, max_depth: 6, tree_method: hist, eval_metric: rmse, random_state: 42 }
+  grid:
+    max_depth: [3, 6]
+    learning_rate: [0.05, 0.1]
+  fallback:
+    class: sklearn.ensemble.HistGradientBoostingRegressor
+    params: { max_iter: 300, learning_rate: 0.05, random_state: 42 }
+    grid:
+      max_depth: [3, 6]
+      learning_rate: [0.05, 0.1]
+metrics:
+  regression: { default: r2, supported: [r2, mae, rmse] }

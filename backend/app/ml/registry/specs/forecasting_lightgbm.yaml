@@ -1,0 +1,29 @@
+id: forecasting.lightgbm_lags
+display_name: Gradient Boosting with Lag Features (LightGBM)
+task_types: [forecasting]
+data_shape: timeseries
+task_family: forecasting
+compute: { device: cpu }
+when_to_use: >
+  Use when the series has irregular patterns or you expect to extend it with
+  feature-driven signals. Captures nonlinear interactions between lagged values
+  and calendar effects. Forecasts recursively, so error compounds over long
+  horizons. Univariate in v1 — only the target's own history is used.
+preprocessing:
+  timeseries:
+    framing: lag_features
+    lags: [1, 2, 3, 7, 14]
+    rolling_windows: [7]
+    calendar_features: true
+model:
+  class: lightgbm.LGBMRegressor
+  params: { n_estimators: 300, learning_rate: 0.05, random_state: 42, verbosity: -1 }
+  grid:
+    num_leaves: [15, 31]
+  fallback:
+    class: sklearn.ensemble.HistGradientBoostingRegressor
+    params: { max_iter: 300, learning_rate: 0.05, random_state: 42 }
+    grid:
+      max_leaf_nodes: [15, 31]
+metrics:
+  forecasting: { default: mase, supported: [mase, mape, smape, rmse, mae] }

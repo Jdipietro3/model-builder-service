@@ -57,6 +57,11 @@ export interface Plan {
   validation: { strategy: string; n_splits: number };
   primary_metric: string;
   reasoning: string;
+  // Present on forecasting plans (task_type === "forecasting", data_shape "timeseries").
+  data_shape?: string;
+  task_family?: string;
+  time_column?: string | null;
+  horizon?: number | null;
 }
 
 export interface Card {
@@ -94,21 +99,52 @@ export interface HoldoutResults {
   residuals?: Record<string, number>;
 }
 
+// Forecasting series blocks (present only on task_family === "forecasting" results).
+export interface HoldoutSeries {
+  timestamps: string[];
+  actual: number[];
+  predicted: number[];
+  lower: number[];
+  upper: number[];
+}
+
+export interface ForecastSeries {
+  timestamps: string[];
+  yhat: number[];
+  lower: number[];
+  upper: number[];
+}
+
+export interface HistoryTail {
+  timestamps: string[];
+  actual: number[];
+}
+
 export interface Results {
   methodology: { id: string; display_name: string };
   task_type: string;
   target_column: string;
   primary_metric: string;
   best_params: Record<string, unknown>;
-  cv: { metric: string; mean: number; std: number; n_splits: number; n_candidates: number };
+  cv: { metric: string; mean: number; std: number; n_splits: number; n_candidates?: number };
   holdout: HoldoutResults;
-  feature_importances: { feature: string; importance: number; std: number }[];
-  features_used: string[];
-  features_dropped: { name: string; reason: string }[];
+  // Optional on forecasting results (they have no permutation importances).
+  feature_importances?: { feature: string; importance: number; std: number }[];
+  features_used?: string[];
+  features_dropped?: { name: string; reason: string }[];
   caveats: string[];
   n_train: number;
   n_test: number;
   training_seconds: number;
+  // Forecasting-only fields (task_family === "forecasting", data_shape "timeseries").
+  task_family?: string;
+  data_shape?: string;
+  time_column?: string;
+  horizon?: number;
+  freq?: string;
+  holdout_series?: HoldoutSeries;
+  forecast?: ForecastSeries;
+  history_tail?: HistoryTail;
 }
 
 export interface Run {
