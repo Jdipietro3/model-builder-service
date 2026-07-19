@@ -39,7 +39,11 @@ def health() -> dict:
 
 
 @app.get("/methodologies")
-def methodologies(task_type: str | None = None) -> list[dict]:
+def methodologies(
+    task_type: str | None = None,
+    data_shape: str | None = None,
+    task_family: str | None = None,
+) -> list[dict]:
     from .ml.registry.loader import list_methodologies
 
-    return list_methodologies(task_type)
+    return list_methodologies(task_type, data_shape, task_family)

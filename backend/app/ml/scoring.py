@@ -39,6 +39,11 @@ def score_dataframe(pipeline, meta: dict, df: pd.DataFrame) -> tuple[pd.DataFram
     if len(df) == 0:
         raise ValueError("Uploaded CSV has no rows")
 
+    # Tags default so bundles trained before schema v2 still score. This is the
+    # supervised predictor; future families would dispatch on task_family here.
+    data_shape = meta.get("data_shape", "tabular")  # noqa: F841 — reserved for family dispatch
+    task_family = meta.get("task_family", "supervised")  # noqa: F841
+
     X = df[feature_cols]
     preds = pipeline.predict(X)
     is_classification = meta["task_type"] != "regression"

@@ -1,6 +1,9 @@
 id: classification.lightgbm
 display_name: Gradient Boosting (LightGBM)
 task_types: [binary_classification, multiclass_classification]
+data_shape: tabular
+task_family: supervised
+compute: { device: cpu }
 when_to_use: >
   The default workhorse for tabular classification. Gradient-boosted trees
   are the strongest known approach for most structured-data problems from a

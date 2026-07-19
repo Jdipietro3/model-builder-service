@@ -1,6 +1,9 @@
 id: regression.lightgbm
 display_name: Gradient Boosting Regressor (LightGBM)
 task_types: [regression]
+data_shape: tabular
+task_family: supervised
+compute: { device: cpu }
 when_to_use: >
   The default workhorse for tabular regression. Strongest general-purpose
   approach for structured data beyond ~1k rows; captures non-linearities and

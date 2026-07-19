@@ -4,6 +4,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 TaskType = Literal["binary_classification", "multiclass_classification", "regression"]
+DataShape = Literal["tabular", "timeseries", "text", "image"]
+TaskFamily = Literal["supervised", "forecasting", "clustering", "anomaly"]
 
 
 class ProjectCreate(BaseModel):
@@ -47,7 +49,11 @@ class Plan(BaseModel):
     """The structured training plan the orchestrator proposes and the user approves."""
 
     task_type: TaskType
-    target_column: str
+    data_shape: DataShape = "tabular"
+    task_family: TaskFamily = "supervised"
+    # Unsupervised families have no target; supervised validation still requires it
+    # (see ml/plans.py).
+    target_column: str | None = None
     methodology_id: str
     excluded_columns: list[str] = Field(default_factory=list)
     validation: ValidationSpec = Field(default_factory=ValidationSpec)

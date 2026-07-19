@@ -1,6 +1,9 @@
 id: classification.random_forest
 display_name: Random Forest
 task_types: [binary_classification, multiclass_classification]
+data_shape: tabular
+task_family: supervised
+compute: { device: cpu }
 when_to_use: >
   Robust non-linear ensemble that needs little tuning and handles mixed
   feature types and outliers well. A good choice for small-to-medium datasets

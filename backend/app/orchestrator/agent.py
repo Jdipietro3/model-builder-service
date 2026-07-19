@@ -23,6 +23,18 @@ logger = logging.getLogger("orchestrator")
 
 MAX_TOOL_ITERATIONS = 12
 
+# Response-only fields the API attaches to content blocks (e.g. structured-output
+# parsing) that it rejects as "extra inputs" when a block is echoed back in history.
+_RESPONSE_ONLY_FIELDS = {"parsed_output"}
+
+
+def _echo_blocks(content: list[Any]) -> list[dict[str, Any]]:
+    """Serialize response content blocks so they can be re-sent as input."""
+    return [
+        {k: v for k, v in b.model_dump().items() if k not in _RESPONSE_ONLY_FIELDS}
+        for b in content
+    ]
+
 
 def _history_messages(db: Session, project_id: str) -> list[dict[str, Any]]:
     """Rebuild LLM conversation history from persisted messages."""
@@ -128,9 +140,7 @@ async def run_turn(
             if response.stop_reason == "tool_use":
                 # Echo the full assistant content (incl. thinking blocks) back, then
                 # answer every tool_use block in a single user message.
-                messages.append(
-                    {"role": "assistant", "content": [b.model_dump() for b in response.content]}
-                )
+                messages.append({"role": "assistant", "content": _echo_blocks(response.content)})
                 tool_results = []
                 for block in response.content:
                     if block.type != "tool_use":
@@ -146,9 +156,7 @@ async def run_turn(
                 continue
 
             if response.stop_reason == "pause_turn":
-                messages.append(
-                    {"role": "assistant", "content": [b.model_dump() for b in response.content]}
-                )
+                messages.append({"role": "assistant", "content": _echo_blocks(response.content)})
                 continue
 
             break  # end_turn / max_tokens / refusal — stop looping

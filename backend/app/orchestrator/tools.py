@@ -17,10 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from ..ml.plans import validate_plan
-from ..ml.profiling import profile_csv
-from ..ml.registry.loader import list_methodologies
+from ..ml.profiling import profile_path
+from ..ml.registry.loader import get_spec, list_methodologies
 from ..models import Dataset, Run
-from ..schemas import TaskType
+from ..schemas import DataShape, TaskFamily, TaskType
 
 # ---------------------------------------------------------------------------
 # Tool input models
@@ -38,12 +38,22 @@ class ProfileDatasetInput(ToolInput):
 
 class ListMethodologiesInput(ToolInput):
     task_type: TaskType | None = Field(default=None, description="Filter by task type")
+    data_shape: DataShape | None = Field(
+        default=None, description="Filter by data shape (tabular, timeseries, text, image)"
+    )
+    task_family: TaskFamily | None = Field(
+        default=None,
+        description="Filter by task family (supervised, forecasting, clustering, anomaly)",
+    )
 
 
 class ProposePlanInput(ToolInput):
     dataset_id: str
     task_type: TaskType
-    target_column: str
+    target_column: str | None = Field(
+        default=None,
+        description="Target/label column. Required for supervised tasks; omit for unsupervised.",
+    )
     methodology_id: str
     excluded_columns: list[str] = Field(
         default_factory=list,
@@ -51,6 +61,14 @@ class ProposePlanInput(ToolInput):
     )
     n_splits: int = Field(default=5, ge=2, le=10)
     primary_metric: str
+    data_shape: DataShape | None = Field(
+        default=None,
+        description="Usually omitted — derived from the chosen methodology.",
+    )
+    task_family: TaskFamily | None = Field(
+        default=None,
+        description="Usually omitted — derived from the chosen methodology.",
+    )
     reasoning: str = Field(
         description="Why this framing and methodology fit, citing data characteristics."
     )
@@ -138,18 +156,19 @@ def profile_dataset(db: Session, project_id: str, args: ProfileDatasetInput):
     if not dataset or dataset.project_id != project_id:
         return {"error": "Dataset not found in this project"}, None
     if dataset.profile is None:
-        dataset.profile = profile_csv(dataset.path)
+        dataset.profile = profile_path(dataset.path)
         db.commit()
     return dataset.profile, None
 
 
 @tool(
     "list_methodologies",
-    "List the curated methodology library, optionally filtered by task type. "
-    "Returns each methodology's id, when-to-use guidance, and supported metrics.",
+    "List the curated methodology library, optionally filtered by task_type, "
+    "data_shape, or task_family. Returns each methodology's id, data_shape, "
+    "task_family, when-to-use guidance, and supported metrics.",
 )
 def list_methodologies_tool(db: Session, project_id: str, args: ListMethodologiesInput):
-    return list_methodologies(args.task_type), None
+    return list_methodologies(args.task_type, args.data_shape, args.task_family), None
 
 
 @tool(
@@ -162,8 +181,20 @@ def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
     dataset = db.get(Dataset, args.dataset_id)
     if not dataset or dataset.project_id != project_id:
         return {"error": "Dataset not found in this project"}, None
+    # The axes are properties of the methodology, not free LLM choices: derive them
+    # from the chosen spec. If the id is unknown, fall back to the LLM's values (or
+    # defaults) and let validate_plan surface the proper unknown-methodology error.
+    try:
+        spec = get_spec(args.methodology_id)
+        data_shape = spec["data_shape"]
+        task_family = spec["task_family"]
+    except KeyError:
+        data_shape = args.data_shape or "tabular"
+        task_family = args.task_family or "supervised"
     plan_data = {
         "task_type": args.task_type,
+        "data_shape": data_shape,
+        "task_family": task_family,
         "target_column": args.target_column,
         "methodology_id": args.methodology_id,
         "excluded_columns": args.excluded_columns,

@@ -1,6 +1,9 @@
 id: classification.logistic_baseline
 display_name: Logistic Regression (baseline)
 task_types: [binary_classification, multiclass_classification]
+data_shape: tabular
+task_family: supervised
+compute: { device: cpu }
 when_to_use: >
   Fast, interpretable linear baseline. Good first model on any tabular
   classification problem, and often sufficient when relationships are roughly

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..config import MAX_UPLOAD_MB, UPLOADS_DIR
 from ..db import get_db
-from ..ml.profiling import profile_csv
+from ..ml.profiling import profile_path
 from ..models import Dataset, Message, Project
 from ..schemas import DatasetOut
 
@@ -27,7 +27,7 @@ async def upload_dataset(project_id: str, file: UploadFile, db: Session = Depend
     dataset.path = str(path)
 
     try:
-        dataset.profile = profile_csv(str(path))
+        dataset.profile = profile_path(str(path))
     except Exception as e:
         path.unlink(missing_ok=True)
         raise HTTPException(400, f"Could not parse CSV: {e}")

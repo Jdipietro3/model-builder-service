@@ -1,6 +1,9 @@
 id: regression.random_forest
 display_name: Random Forest Regressor
 task_types: [regression]
+data_shape: tabular
+task_family: supervised
+compute: { device: cpu }
 when_to_use: >
   Robust non-linear ensemble for regression with little tuning required.
   Good for small-to-medium datasets with non-linear relationships and

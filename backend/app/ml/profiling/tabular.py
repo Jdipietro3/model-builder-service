@@ -132,6 +132,9 @@ def profile_dataframe(df: pd.DataFrame) -> dict[str, Any]:
         columns.append(info)
 
     target_candidates = _target_candidates(df, columns)
+    # Names of datetime columns — a reserved selection signal for future
+    # timeseries routing (e.g. the forecasting runner's time_column).
+    time_column_candidates = [c["name"] for c in columns if c["kind"] == "datetime"]
 
     warnings: list[str] = []
     constant = [c["name"] for c in columns if c["n_unique"] <= 1]
@@ -154,12 +157,13 @@ def profile_dataframe(df: pd.DataFrame) -> dict[str, Any]:
                 )
 
     return {
-        "modality": "tabular",
+        "data_shape": "tabular",
         "n_rows": int(n_rows),
         "n_cols": int(n_cols),
         "sample_rows": _sample_rows(df),
         "columns": columns,
         "target_candidates": target_candidates,
+        "time_column_candidates": time_column_candidates,
         "warnings": warnings,
     }
 
@@ -169,7 +173,7 @@ def profile_csv(path: str) -> dict[str, Any]:
 
 
 class TabularProfiler:
-    modality = "tabular"
+    data_shape = "tabular"
     extensions = (".csv",)
 
     def profile(self, path: str) -> dict[str, Any]:

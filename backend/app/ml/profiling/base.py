@@ -2,7 +2,7 @@
 
 A profiler turns an uploaded file into the structured, token-compact summary
 the orchestrator (and the user) sees before any framing decision is made.
-Profilers are registered per modality; new data types (images, time series...)
+Profilers are registered per data shape; new data types (images, time series...)
 plug in by implementing Profiler and calling register().
 """
 
@@ -12,7 +12,7 @@ from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class Profiler(Protocol):
-    modality: str  # "tabular"; future: "image", "timeseries", ...
+    data_shape: str  # "tabular"; future: "image", "timeseries", ...
     extensions: tuple[str, ...]  # file suffixes this profiler handles, e.g. (".csv",)
 
     def profile(self, path: str) -> dict[str, Any]: ...

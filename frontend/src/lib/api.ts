@@ -39,12 +39,13 @@ export interface ColumnInfo {
 
 export interface Profile {
   // Optional fields only exist on profiles generated after the enriched profiler.
-  modality?: string;
+  data_shape?: string;
   n_rows: number;
   n_cols: number;
   sample_rows?: { columns: string[]; rows: string[][]; truncated_cols?: boolean };
   columns: ColumnInfo[];
   target_candidates: string[];
+  time_column_candidates?: string[];
   warnings: string[];
 }
 
