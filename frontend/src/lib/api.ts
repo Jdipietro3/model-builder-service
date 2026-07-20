@@ -65,7 +65,7 @@ export interface Plan {
 }
 
 export interface Card {
-  type: "profile" | "plan" | "report";
+  type: "profile" | "plan" | "report" | "dataset_update" | "retrain";
   [key: string]: unknown;
 }
 
@@ -82,7 +82,18 @@ export interface Dataset {
   id: string;
   filename: string;
   profile: Profile | null;
+  version?: number;
+  parent_dataset_id?: string | null;
   created_at: string;
+}
+
+export interface UpdateDiff {
+  mode: string;
+  rows_before: number;
+  rows_after: number;
+  rows_added: number;
+  time_range_before?: [string, string] | null;
+  time_range_after?: [string, string] | null;
 }
 
 export interface RunProgress {
@@ -156,6 +167,7 @@ export interface Run {
   progress: RunProgress | null;
   results: Results | null;
   error: string | null;
+  parent_run_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -227,6 +239,18 @@ export const api = {
       (r) => json<Dataset>(r),
     );
   },
+
+  updateDataset: (datasetId: string, file: File, mode: "replace" | "append") => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("mode", mode);
+    return fetch(`${API}/datasets/${datasetId}/update`, { method: "POST", body: form }).then((r) =>
+      json<{ dataset: Dataset; diff: UpdateDiff }>(r),
+    );
+  },
+
+  retrainRun: (runId: string) =>
+    fetch(`${API}/runs/${runId}/retrain`, { method: "POST" }).then((r) => json<Run>(r)),
 
   listMethodologies: () => fetch(`${API}/methodologies`).then((r) => json<Methodology[]>(r)),
 

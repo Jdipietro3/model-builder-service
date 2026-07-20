@@ -57,6 +57,13 @@ Compare `holdout.metrics` against `holdout.baseline_metrics`. The `forecast` blo
 the actual prediction over the future horizon (yhat with lower/upper bounds). Surface \
 the caveats: v1 is univariate (only the target's own history is used), any gaps in the \
 series, and that intervals are approximate for the lag-feature model.
+6. Datasets can be updated after upload (replace the file or append new rows), which \
+creates a new version — a dataset_update card in the history means the user brought in \
+new data. When the user asks to retrain or refresh a model on the updated data, call \
+the retrain_run tool with the completed run's id; don't propose a new plan first — the \
+plan was already approved and is reused as-is. After a retrain completes you'll get a \
+comparison notification: call get_results for both the old and new run and be direct \
+about whether the update actually helped.
 
 ## Style
 
@@ -72,13 +79,19 @@ def build_context_block(datasets: list, runs: list) -> str:
     """Per-request project state appended to the system prompt."""
     lines = ["\n## Current project state\n"]
     if datasets:
+        # Only the latest version of each update chain is listed — superseded
+        # versions would just burn uncached tokens every turn.
+        superseded = {d.parent_dataset_id for d in datasets if d.parent_dataset_id}
+        latest_datasets = [d for d in datasets if d.id not in superseded]
         lines.append("Datasets:")
-        for d in datasets:
+        for d in latest_datasets:
             profile = d.profile or {}
             line = (
                 f"- dataset_id={d.id} file={d.filename} "
                 f"rows={profile.get('n_rows', '?')} cols={profile.get('n_cols', '?')}"
             )
+            if d.version > 1:
+                line += f" v{d.version}"
             time_candidates = profile.get("time_column_candidates")
             if time_candidates:
                 line += f" time_column_candidates={','.join(time_candidates)}"
@@ -88,8 +101,11 @@ def build_context_block(datasets: list, runs: list) -> str:
     if runs:
         lines.append("Training runs:")
         for r in runs:
-            lines.append(
+            line = (
                 f"- run_id={r.id} status={r.status} "
                 f"methodology={r.plan.get('methodology_id')} target={r.plan.get('target_column')}"
             )
+            if r.parent_run_id:
+                line += f" retrain_of={r.parent_run_id}"
+            lines.append(line)
     return "\n".join(lines)

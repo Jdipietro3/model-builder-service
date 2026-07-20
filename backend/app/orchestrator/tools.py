@@ -20,6 +20,7 @@ from ..ml.plans import validate_plan
 from ..ml.profiling import profile_path
 from ..ml.registry.loader import get_spec, list_methodologies
 from ..models import Dataset, Run
+from ..retrain import NoNewerDataError, retrain_run
 from ..schemas import DataShape, TaskFamily, TaskType
 
 # ---------------------------------------------------------------------------
@@ -88,6 +89,10 @@ class GetRunStatusInput(ToolInput):
 
 
 class GetResultsInput(ToolInput):
+    run_id: str
+
+
+class RetrainRunInput(ToolInput):
     run_id: str
 
 
@@ -254,6 +259,38 @@ def get_results(db: Session, project_id: str, args: GetResultsInput):
     if run.status != "completed":
         return {"error": f"Run is '{run.status}', results not available"}, None
     return run.results, None
+
+
+@tool(
+    "retrain_run",
+    "Retrain a completed run's approved plan on the latest version of its dataset. "
+    "Use when the user has updated the data and wants the model refreshed. Training "
+    "starts immediately (the plan was already approved).",
+)
+def retrain_run_tool(db: Session, project_id: str, args: RetrainRunInput):
+    run = db.get(Run, args.run_id)
+    if not run or run.project_id != project_id:
+        return {"error": "Run not found in this project"}, None
+    try:
+        new_run = retrain_run(db, run)
+    except (NoNewerDataError, ValueError) as e:
+        return {"error": str(e)}, None
+    latest = db.get(Dataset, new_run.dataset_id)
+    card = {
+        "type": "retrain",
+        "run_id": new_run.id,
+        "parent_run_id": run.id,
+        "dataset_id": latest.id,
+        "dataset_filename": latest.filename,
+        "plan": new_run.plan,
+    }
+    result = {
+        "run_id": new_run.id,
+        "status": new_run.status,
+        "dataset_version": latest.version,
+        "parent_run_id": run.id,
+    }
+    return result, card
 
 
 # ---------------------------------------------------------------------------

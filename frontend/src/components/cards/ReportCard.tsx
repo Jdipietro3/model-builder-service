@@ -9,8 +9,9 @@ const GOOD = "#0ca30c";
 const BAD = "#e66767";
 
 // All forecasting metrics (mase/mape/smape) are lower-is-better, like mae/rmse.
-const LOWER_BETTER = new Set(["mae", "rmse", "mase", "mape", "smape"]);
-const METRIC_LABELS: Record<string, string> = {
+// Exported for reuse by ComparisonCard (retrain vs. prior-run metric deltas).
+export const LOWER_BETTER = new Set(["mae", "rmse", "mase", "mape", "smape"]);
+export const METRIC_LABELS: Record<string, string> = {
   roc_auc: "ROC-AUC",
   pr_auc: "PR-AUC",
   f1: "F1",
@@ -30,7 +31,7 @@ const ACTUAL_HUE = "#d4d4d8"; // zinc-300 — observed values
 const PRED_HUE = "#3987e5"; // blue — backtest predictions
 const FORECAST_HUE = "#10b981"; // emerald — future forecast
 
-function fmt(v: number): string {
+export function fmt(v: number): string {
   if (Math.abs(v) >= 1000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
   return v.toLocaleString(undefined, { maximumFractionDigits: 3 });
 }

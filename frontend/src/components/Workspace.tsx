@@ -7,7 +7,25 @@ import ProfileCard from "./cards/ProfileCard";
 import PlanCard from "./cards/PlanCard";
 import TrainingCard from "./cards/TrainingCard";
 import ReportCard from "./cards/ReportCard";
+import ComparisonCard from "./cards/ComparisonCard";
 import PredictionCard from "./cards/PredictionCard";
+
+/** A dataset is a chain tip if no other dataset's parent_dataset_id points at it. */
+function isChainTip(d: Dataset, all: Dataset[]): boolean {
+  return !all.some((x) => x.parent_dataset_id === d.id);
+}
+
+/** Walk parent_dataset_id links forward from `datasetId` to the newest version
+ * in its chain (used to detect "a newer version exists" for the retrain CTA). */
+function findChainTip(datasetId: string, all: Dataset[]): Dataset | undefined {
+  let current = all.find((d) => d.id === datasetId);
+  if (!current) return undefined;
+  for (;;) {
+    const next = all.find((d) => d.parent_dataset_id === current!.id);
+    if (!next) return current;
+    current = next;
+  }
+}
 
 const STATUS_DOT: Record<string, string> = {
   pending_approval: "bg-amber-400",
@@ -31,15 +49,96 @@ function extractErrorDetail(e: unknown): string {
   return msg;
 }
 
+/** Inline "Update" control for a dataset chain tip: file picker, then a
+ * Replace/Append/Cancel choice once a file is staged. */
+function DatasetUpdateControl({
+  dataset,
+  onUploadDatasetUpdate,
+}: {
+  dataset: Dataset;
+  onUploadDatasetUpdate: (datasetId: string, file: File, mode: "replace" | "append") => Promise<void>;
+}) {
+  const [pending, setPending] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(mode: "replace" | "append") {
+    if (!pending) return;
+    setBusy(true);
+    try {
+      await onUploadDatasetUpdate(dataset.id, pending, mode);
+    } catch {
+      // Errors are surfaced by the caller (chat message); just reset locally.
+    } finally {
+      setBusy(false);
+      setPending(null);
+    }
+  }
+
+  if (pending) {
+    return (
+      <div className="flex shrink-0 items-center gap-1.5 text-xs" onClick={(e) => e.stopPropagation()}>
+        <span className="max-w-28 truncate font-mono text-zinc-500" title={pending.name}>
+          {pending.name}
+        </span>
+        <button
+          onClick={() => submit("replace")}
+          disabled={busy}
+          className="rounded border border-zinc-700 px-2 py-0.5 text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400 disabled:opacity-40"
+        >
+          Replace
+        </button>
+        <button
+          onClick={() => submit("append")}
+          disabled={busy}
+          className="rounded border border-zinc-700 px-2 py-0.5 text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400 disabled:opacity-40"
+        >
+          Append
+        </button>
+        <button
+          onClick={() => setPending(null)}
+          disabled={busy}
+          title="Cancel"
+          className="px-1 text-zinc-500 transition-colors hover:text-zinc-300 disabled:opacity-40"
+        >
+          ×
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <label
+      className="shrink-0 cursor-pointer text-xs text-zinc-500 transition-colors hover:text-emerald-400"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        type="file"
+        accept=".csv"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) setPending(f);
+          e.target.value = "";
+        }}
+      />
+      Update
+    </label>
+  );
+}
+
 function DatasetSection({
   datasets,
   onUploadDataset,
+  onUploadDatasetUpdate,
 }: {
   datasets: Dataset[];
   onUploadDataset: (f: File) => void;
+  onUploadDatasetUpdate: (datasetId: string, file: File, mode: "replace" | "append") => Promise<void>;
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   if (datasets.length === 0) return null;
+  // Only chain tips are shown — an updated dataset supersedes its parent in the list.
+  const tips = datasets.filter((d) => isChainTip(d, datasets));
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
@@ -59,20 +158,30 @@ function DatasetSection({
         </label>
       </div>
       <div className="space-y-2">
-        {datasets.map((d) => (
+        {tips.map((d) => (
           <div key={d.id}>
-            <button
-              onClick={() => setOpen((prev) => ({ ...prev, [d.id]: !prev[d.id] }))}
-              className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-2.5 text-left transition-colors hover:border-zinc-700"
-            >
-              <span className="font-mono text-sm text-zinc-300">{d.filename}</span>
-              <span className="text-xs text-zinc-500">
-                {d.profile
-                  ? `${d.profile.n_rows.toLocaleString()} rows × ${d.profile.n_cols} cols`
-                  : ""}{" "}
-                {open[d.id] ? "▾" : "▸"}
-              </span>
-            </button>
+            <div className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-2.5 transition-colors hover:border-zinc-700">
+              <button
+                onClick={() => setOpen((prev) => ({ ...prev, [d.id]: !prev[d.id] }))}
+                className="flex min-w-0 flex-1 items-center justify-between text-left"
+              >
+                <span className="flex items-center gap-1.5 truncate font-mono text-sm text-zinc-300">
+                  {d.filename}
+                  {(d.version ?? 1) > 1 && (
+                    <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-sans text-[10px] font-medium text-zinc-400">
+                      v{d.version}
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 pl-2 text-xs text-zinc-500">
+                  {d.profile
+                    ? `${d.profile.n_rows.toLocaleString()} rows × ${d.profile.n_cols} cols`
+                    : ""}{" "}
+                  {open[d.id] ? "▾" : "▸"}
+                </span>
+              </button>
+              <DatasetUpdateControl dataset={d} onUploadDatasetUpdate={onUploadDatasetUpdate} />
+            </div>
             {open[d.id] && (
               <div className="mt-2">
                 <ProfileCard filename={d.filename} profile={d.profile} />
@@ -168,6 +277,8 @@ export default function Workspace({
   onApprove,
   onPredict,
   onUploadDataset,
+  onRetrain,
+  onUpdateDataset,
 }: {
   datasets: Dataset[];
   runs: Run[];
@@ -177,9 +288,12 @@ export default function Workspace({
   onApprove: (runId: string, overrides: Partial<Plan>) => void;
   onPredict: (runId: string, file: File) => Promise<void>;
   onUploadDataset: (file: File) => void;
+  onRetrain: (runId: string) => Promise<void>;
+  onUpdateDataset: (datasetId: string, file: File, mode: "replace" | "append") => Promise<void>;
 }) {
   const ordered = runs.slice().reverse(); // newest first
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [retrainingIds, setRetrainingIds] = useState<Set<string>>(new Set());
 
   // Select the newest run whenever one appears (incl. a freshly proposed plan).
   useEffect(() => {
@@ -196,9 +310,38 @@ export default function Workspace({
   const dataset = datasets.find((d) => d.id === selected.dataset_id);
   const methodology = methodologies.find((m) => m.id === selected.plan.methodology_id);
 
+  // Newer data available for the selected run's dataset chain, if any.
+  const datasetTip = findChainTip(selected.dataset_id, datasets);
+  const hasNewerData = !!datasetTip && datasetTip.id !== selected.dataset_id;
+  const retraining = retrainingIds.has(selected.id);
+
+  async function handleRetrainClick() {
+    setRetrainingIds((prev) => new Set(prev).add(selected.id));
+    try {
+      await onRetrain(selected.id);
+    } finally {
+      setRetrainingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(selected.id);
+        return next;
+      });
+    }
+  }
+
+  // Comparison vs. the run this one was retrained from (both need results).
+  const parentRun = selected.parent_run_id
+    ? runs.find((r) => r.id === selected.parent_run_id)
+    : undefined;
+  const parentResults = parentRun ? (runStates[parentRun.id]?.results ?? parentRun.results) : null;
+  const parentDataset = parentRun ? datasets.find((d) => d.id === parentRun.dataset_id) : undefined;
+
   return (
     <div className="space-y-8">
-      <DatasetSection datasets={datasets} onUploadDataset={onUploadDataset} />
+      <DatasetSection
+        datasets={datasets}
+        onUploadDataset={onUploadDataset}
+        onUploadDatasetUpdate={onUpdateDataset}
+      />
 
       <section>
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">Model</h2>
@@ -207,6 +350,7 @@ export default function Workspace({
             {ordered.map((r) => {
               const s = runStates[r.id]?.status ?? r.status;
               const m = methodologies.find((x) => x.id === r.plan.methodology_id);
+              const v = datasets.find((d) => d.id === r.dataset_id)?.version ?? 1;
               return (
                 <button
                   key={r.id}
@@ -219,6 +363,7 @@ export default function Workspace({
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[s] ?? "bg-zinc-500"}`} />
                   {m?.display_name ?? r.plan.methodology_id} → {r.plan.target_column}
+                  <span className="text-zinc-500">v{v}</span>
                 </button>
               );
             })}
@@ -243,6 +388,23 @@ export default function Workspace({
           )}
           {status === "completed" && results && (
             <ReportCard runId={selected.id} results={results} />
+          )}
+          {status === "completed" && results && parentRun && parentResults && (
+            <ComparisonCard
+              oldResults={parentResults}
+              newResults={results}
+              oldDatasetVersion={parentDataset?.version}
+              newDatasetVersion={dataset?.version}
+            />
+          )}
+          {status === "completed" && hasNewerData && (
+            <button
+              onClick={handleRetrainClick}
+              disabled={retraining}
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-emerald-600 hover:text-emerald-400 disabled:opacity-40"
+            >
+              {retraining ? "Retraining…" : `Retrain on updated data (v${datasetTip?.version ?? 1})`}
+            </button>
           )}
         </div>
       </section>

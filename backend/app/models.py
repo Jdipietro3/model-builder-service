@@ -47,6 +47,10 @@ class Dataset(Base):
     filename: Mapped[str] = mapped_column(String(300))
     path: Mapped[str] = mapped_column(String(500))
     profile: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    version: Mapped[int] = mapped_column(default=1)
+    # id of the dataset version this one replaces/extends; the newest version of a
+    # chain is the row no other row names as parent.
+    parent_dataset_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
 
@@ -77,5 +81,7 @@ class Run(Base):
     results: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     artifact_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Set only on retrains: the run this one was retrained from.
+    parent_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)

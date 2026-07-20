@@ -14,6 +14,20 @@ import {
   ProjectDetail,
   Run,
 } from "@/lib/api";
+
+function extractErrorDetail(e: unknown): string {
+  const msg = String(e instanceof Error ? e.message : e);
+  const jsonStart = msg.indexOf("{");
+  if (jsonStart >= 0) {
+    try {
+      const parsed = JSON.parse(msg.slice(jsonStart));
+      if (parsed.detail) return String(parsed.detail);
+    } catch {
+      // fall through to raw message
+    }
+  }
+  return msg;
+}
 import { MessageView, StreamingMessage } from "@/components/Chat";
 import Workspace from "@/components/Workspace";
 
@@ -187,6 +201,35 @@ export default function ProjectPage() {
     pollTimersRef.current.add(timer);
   }, []);
 
+  /** Open the SSE progress stream for a run and keep runStates in sync until it
+   * reaches a terminal status (used by both approveRun and handleRetrain). */
+  const watchRun = useCallback(
+    (runId: string) => {
+      const es = new EventSource(api.runEventsUrl(runId));
+      es.onmessage = (ev) => {
+        const data = JSON.parse(ev.data);
+        setRunStates((prev) => ({
+          ...prev,
+          [runId]: {
+            status: data.status,
+            progress: data.progress,
+            results: data.results ?? prev[runId]?.results ?? null,
+            error: data.error ?? null,
+            live: true,
+          },
+        }));
+        if (data.status === "completed" || data.status === "failed") {
+          es.close();
+          if (data.status === "completed") {
+            pollForInterpretation(id);
+          }
+        }
+      };
+      es.onerror = () => es.close();
+    },
+    [id, pollForInterpretation],
+  );
+
   const send = useCallback(
     async (content: string, kind: "user" | "system_event" = "user") => {
       if (busy) return;
@@ -240,6 +283,51 @@ export default function ProjectPage() {
                 live: false,
               },
             }));
+          } else if (e.card.type === "dataset_update") {
+            // A dataset update pinned via chat (e.g. the user described a new
+            // file) — mirror it into workspace state the same way the REST
+            // update endpoint's response does in handleUpdateDataset.
+            const c = e.card;
+            const ds: Dataset = {
+              id: c.dataset_id as string,
+              filename: c.filename as string,
+              profile: (c.profile ?? null) as Dataset["profile"],
+              version: c.version as number,
+              parent_dataset_id: c.parent_dataset_id as string,
+              created_at: new Date().toISOString(),
+            };
+            setDatasets((prev) => (prev.some((d) => d.id === ds.id) ? prev : [...prev, ds]));
+          } else if (e.card.type === "retrain") {
+            // The retrain tool already submitted training server-side by the
+            // time this card streams down — synthesize the new run as queued
+            // and start watching its progress, mirroring handleRetrain.
+            const c = e.card;
+            const now = new Date().toISOString();
+            const run: Run = {
+              id: c.run_id as string,
+              project_id: id,
+              dataset_id: c.dataset_id as string,
+              status: "queued",
+              plan: c.plan as Plan,
+              progress: null,
+              results: null,
+              error: null,
+              parent_run_id: c.parent_run_id as string,
+              created_at: now,
+              updated_at: now,
+            };
+            setRuns((prev) => (prev.some((r) => r.id === run.id) ? prev : [...prev, run]));
+            setRunStates((prev) => ({
+              ...prev,
+              [run.id]: {
+                status: "queued",
+                progress: null,
+                results: null,
+                error: null,
+                live: true,
+              },
+            }));
+            watchRun(run.id);
           }
         } else if (e.type === "error") {
           text += `${text ? "\n\n" : ""}⚠ ${e.message}`;
@@ -263,7 +351,7 @@ export default function ProjectPage() {
       setStreamCards([]);
       setBusy(false);
     },
-    [busy, id],
+    [busy, id, watchRun],
   );
 
   async function handleUpload(file: File) {
@@ -315,32 +403,12 @@ export default function ProjectPage() {
             live: true,
           },
         }));
-        const es = new EventSource(api.runEventsUrl(runId));
-        es.onmessage = (ev) => {
-          const data = JSON.parse(ev.data);
-          setRunStates((prev) => ({
-            ...prev,
-            [runId]: {
-              status: data.status,
-              progress: data.progress,
-              results: data.results ?? prev[runId]?.results ?? null,
-              error: data.error ?? null,
-              live: true,
-            },
-          }));
-          if (data.status === "completed" || data.status === "failed") {
-            es.close();
-            if (data.status === "completed") {
-              pollForInterpretation(id);
-            }
-          }
-        };
-        es.onerror = () => es.close();
+        watchRun(runId);
       } catch (e) {
         alert(`Could not start training: ${e}`);
       }
     },
-    [id, pollForInterpretation],
+    [watchRun],
   );
 
   const handlePredict = useCallback(
@@ -349,6 +417,65 @@ export default function ProjectPage() {
       setPredictions((prev) => [...prev, p]);
     },
     [],
+  );
+
+  const handleRetrain = useCallback(
+    async (runId: string) => {
+      try {
+        const run = await api.retrainRun(runId);
+        setRuns((prev) => (prev.some((r) => r.id === run.id) ? prev : [...prev, run]));
+        setRunStates((prev) => ({
+          ...prev,
+          [run.id]: {
+            status: run.status,
+            progress: run.progress ?? null,
+            results: null,
+            error: null,
+            live: true,
+          },
+        }));
+        watchRun(run.id);
+      } catch (e) {
+        alert(`Could not retrain: ${extractErrorDetail(e)}`);
+      }
+    },
+    [watchRun],
+  );
+
+  const handleUpdateDataset = useCallback(
+    async (datasetId: string, file: File, mode: "replace" | "append") => {
+      try {
+        const res = await api.updateDataset(datasetId, file, mode);
+        setDatasets((prev) => [...prev, res.dataset]);
+        // The update endpoint pins a dataset_update card into chat history —
+        // fetch once and merge any messages we don't have yet (same dedupe
+        // approach as pollForInterpretation, just a single shot).
+        try {
+          const p = await api.getProject(id);
+          if (!mountedRef.current) return;
+          const newOnes = p.messages.filter(
+            (msg) => !msg.hidden && !messageIdsRef.current.has(msg.id),
+          );
+          if (newOnes.length > 0) setMessages((prev) => [...prev, ...newOnes]);
+        } catch {
+          // Best effort — dataset state above is already correct either way.
+        }
+      } catch (e) {
+        const detail = extractErrorDetail(e);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `local-${Date.now()}`,
+            role: "assistant",
+            content: `⚠ Dataset update failed: ${detail}`,
+            hidden: false,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+        throw e;
+      }
+    },
+    [id],
   );
 
   function doSend() {
@@ -409,6 +536,8 @@ export default function ProjectPage() {
               onApprove={approveRun}
               onPredict={handlePredict}
               onUploadDataset={handleUpload}
+              onRetrain={handleRetrain}
+              onUpdateDataset={handleUpdateDataset}
             />
           </div>
           <aside className="flex w-95 shrink-0 flex-col border-l border-zinc-800 bg-zinc-950">

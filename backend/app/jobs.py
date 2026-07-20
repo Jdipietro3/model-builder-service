@@ -92,12 +92,23 @@ def _execute(run_id: str) -> None:
         db.close()
 
 
-def _build_interpretation_notification(run_id: str, plan: dict) -> str:
+def _build_interpretation_notification(run_id: str, plan: dict, parent_run_id: str | None = None) -> str:
     """Build the hidden system-notification text that kicks off the results
     interpretation turn. Family-aware: forecasting runs get a baseline-vs-seasonal-
     naive framing, other (supervised) runs get the naive-baseline framing that the
     frontend used to send verbatim before this became a server-side trigger.
+
+    Retrains (parent_run_id set) get a comparison framing instead, regardless of
+    family — get_results gives the LLM everything it needs for both runs.
     """
+    if parent_run_id:
+        return (
+            f"[system notification] Training run {run_id} has completed. This is a RETRAIN "
+            f"of run {parent_run_id} on an updated version of the dataset. Call get_results "
+            "for BOTH runs and compare them for the user: did the data update improve the "
+            "headline metric, which metrics moved notably, and should they prefer the new "
+            "model? Include any caveats."
+        )
     if plan.get("task_family") == "forecasting":
         return (
             f"[system notification] Training run {run_id} has completed. Call get_results and "
@@ -138,7 +149,7 @@ def _interpret_run(run: Run) -> None:
     is logged and swallowed. The run row is already committed as "completed" by the
     caller before this runs, and must not be touched here regardless of outcome.
     """
-    notification = _build_interpretation_notification(run.id, run.plan)
+    notification = _build_interpretation_notification(run.id, run.plan, run.parent_run_id)
     try:
         asyncio.run(_drain_interpretation_turn(run.project_id, notification))
     except Exception:

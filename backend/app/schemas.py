@@ -35,6 +35,8 @@ class DatasetOut(BaseModel):
     id: str
     filename: str
     profile: dict[str, Any] | None = None
+    version: int = 1
+    parent_dataset_id: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -72,6 +74,7 @@ class RunOut(BaseModel):
     progress: dict[str, Any] | None = None
     results: dict[str, Any] | None = None
     error: str | None = None
+    parent_run_id: str | None = None
     created_at: datetime
     updated_at: datetime
 

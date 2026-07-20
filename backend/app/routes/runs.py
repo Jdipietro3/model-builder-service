@@ -12,6 +12,7 @@ from ..jobs import submit_training
 from ..ml.plans import validate_plan
 from ..ml.scoring import load_model, read_csv_bytes, score_dataframe
 from ..models import Dataset, Prediction, Run
+from ..retrain import NoNewerDataError, retrain_run
 from ..schemas import ApproveRequest, PredictionOut, RunOut
 
 router = APIRouter(prefix="/runs", tags=["runs"])
@@ -46,6 +47,20 @@ def approve_run(run_id: str, body: ApproveRequest, db: Session = Depends(get_db)
     submit_training(run_id)
     db.refresh(run)
     return run
+
+
+@router.post("/{run_id}/retrain", response_model=RunOut)
+def retrain(run_id: str, db: Session = Depends(get_db)):
+    run = db.get(Run, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    try:
+        new_run = retrain_run(db, run)
+    except NoNewerDataError as e:
+        raise HTTPException(409, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return new_run
 
 
 @router.get("/{run_id}/events")

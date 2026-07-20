@@ -21,6 +21,29 @@ def init_db() -> None:
     from . import models  # noqa: F401
 
     Base.metadata.create_all(engine)
+    _ensure_columns(engine)
+
+
+def _ensure_columns(engine) -> None:
+    """Poor-man's migration for a prototype: add columns introduced after a table
+    already existed. SQLite's ADD COLUMN + DEFAULT handles this fine; idempotent
+    since each column is only added if PRAGMA table_info doesn't already list it."""
+    additions = {
+        "datasets": [
+            ("version", "INTEGER NOT NULL DEFAULT 1"),
+            ("parent_dataset_id", "VARCHAR(32)"),
+        ],
+        "runs": [
+            ("parent_run_id", "VARCHAR(32)"),
+        ],
+    }
+    with engine.connect() as conn:
+        for table, columns in additions.items():
+            existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+            for name, ddl_type in columns:
+                if name not in existing:
+                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl_type}")
+        conn.commit()
 
 
 def get_db():

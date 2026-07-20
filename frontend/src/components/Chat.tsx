@@ -21,6 +21,13 @@ const CHIP_LABELS: Record<string, (card: Card) => string> = {
   profile: (c) => `Dataset profiled: ${c.filename}`,
   plan: () => "Training plan proposed",
   report: () => "Training results ready",
+  dataset_update: (c) => {
+    const diff = c.diff as { rows_added?: number } | undefined;
+    const rows = diff?.rows_added;
+    const sign = typeof rows === "number" && rows > 0 ? "+" : "";
+    return `Data updated → v${c.version} (${sign}${rows ?? 0} rows)`;
+  },
+  retrain: () => "Retraining on updated data",
 };
 
 function CardChip({ card }: { card: Card }) {
@@ -74,6 +81,32 @@ function CardView({ card, ctx }: { card: Card; ctx: CardContext }) {
 
   if (card.type === "report") {
     return <ReportCard runId={card.run_id as string} results={card.results as Results} />;
+  }
+
+  if (card.type === "dataset_update") {
+    const diff = card.diff as
+      | { rows_before: number; rows_after: number; rows_added: number }
+      | undefined;
+    return (
+      <div className="space-y-2">
+        {diff && (
+          <p className="text-xs text-zinc-500">
+            Dataset updated to v{card.version as number}: {diff.rows_before.toLocaleString()} →{" "}
+            {diff.rows_after.toLocaleString()} rows ({diff.rows_added >= 0 ? "+" : ""}
+            {diff.rows_added})
+          </p>
+        )}
+        <ProfileCard filename={card.filename as string} profile={card.profile as Profile} />
+      </div>
+    );
+  }
+
+  if (card.type === "retrain") {
+    return (
+      <p className="text-sm text-zinc-400">
+        Retraining on updated data — see workspace for progress.
+      </p>
+    );
   }
 
   return null;
