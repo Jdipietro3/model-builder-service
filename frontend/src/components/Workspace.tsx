@@ -8,6 +8,8 @@ import PlanCard from "./cards/PlanCard";
 import TrainingCard from "./cards/TrainingCard";
 import ReportCard from "./cards/ReportCard";
 import ComparisonCard from "./cards/ComparisonCard";
+import TournamentCard from "./cards/TournamentCard";
+import TournamentComparisonCard, { Contender } from "./cards/TournamentComparisonCard";
 import PredictionCard from "./cards/PredictionCard";
 
 /** A dataset is a chain tip if no other dataset's parent_dataset_id points at it. */
@@ -31,9 +33,18 @@ const STATUS_DOT: Record<string, string> = {
   pending_approval: "bg-amber-400",
   queued: "bg-sky-400",
   running: "bg-sky-400",
+  waiting: "bg-zinc-500",
+  claimed: "bg-zinc-500", // transient promotion-mutex state; treated like waiting
   completed: "bg-emerald-500",
   failed: "bg-red-500",
 };
+
+/** Statuses that mean "still working toward a result" for TrainingCard purposes,
+ * including the ensemble's pre-promotion "waiting" state (and the brief
+ * "claimed" state seen during promotion). */
+function isTrainingLikeStatus(status: string): boolean {
+  return ["queued", "running", "failed", "waiting", "claimed"].includes(status);
+}
 
 function extractErrorDetail(e: unknown): string {
   const msg = String(e instanceof Error ? e.message : e);
@@ -275,6 +286,7 @@ export default function Workspace({
   predictions,
   methodologies,
   onApprove,
+  onApproveTournament,
   onPredict,
   onUploadDataset,
   onRetrain,
@@ -286,6 +298,7 @@ export default function Workspace({
   predictions: Prediction[];
   methodologies: Methodology[];
   onApprove: (runId: string, overrides: Partial<Plan>) => void;
+  onApproveTournament: (tournamentId: string) => void;
   onPredict: (runId: string, file: File) => Promise<void>;
   onUploadDataset: (file: File) => void;
   onRetrain: (runId: string) => Promise<void>;
@@ -335,6 +348,40 @@ export default function Workspace({
   const parentResults = parentRun ? (runStates[parentRun.id]?.results ?? parentRun.results) : null;
   const parentDataset = parentRun ? datasets.find((d) => d.id === parentRun.dataset_id) : undefined;
 
+  // Tournament siblings (candidates + ensemble) that share the selected run's
+  // tournament_id and have results in — feeds the N-way comparison table below.
+  const tournamentContenders: Contender[] = selected.tournament_id
+    ? runs
+        .filter((r) => r.tournament_id === selected.tournament_id)
+        .map((r) => ({ run: r, results: runStates[r.id]?.results ?? r.results }))
+        .filter((c): c is Contender => !!c.results)
+    : [];
+
+  // Pre-approval tournament grouping: while every candidate is still awaiting
+  // approval, the whole tournament is approved once via TournamentCard (rendered
+  // in place of the per-run PlanCard). Once training starts we fall through to the
+  // normal per-run PlanCard / TrainingCard / ReportCard flow selected via the pills.
+  const tournamentRuns = selected.tournament_id
+    ? runs.filter((r) => r.tournament_id === selected.tournament_id)
+    : [];
+  const tCandidates = tournamentRuns.filter((r) => r.tournament_role === "candidate");
+  const tEnsemble = tournamentRuns.find((r) => r.tournament_role === "ensemble") ?? null;
+  const tournamentPending =
+    tCandidates.length > 0 &&
+    tCandidates.every((r) => (runStates[r.id]?.status ?? r.status) === "pending_approval");
+  const ensembleKind: "blend" | "stacking" | "none" = tEnsemble
+    ? tEnsemble.plan.methodology_id === "ensemble.stacking"
+      ? "stacking"
+      : "blend"
+    : "none";
+
+  // Synthesized progress for the ensemble's pre-promotion "waiting" state (and the
+  // brief "claimed" state during promotion) when no live SSE progress has arrived yet.
+  const trainingProgress =
+    (status === "waiting" || status === "claimed") && !state?.progress
+      ? { stage: "waiting", pct: 0, message: "Waiting for tournament candidates to finish" }
+      : (state?.progress ?? null);
+
   return (
     <div className="space-y-8">
       <DatasetSection
@@ -351,6 +398,7 @@ export default function Workspace({
               const s = runStates[r.id]?.status ?? r.status;
               const m = methodologies.find((x) => x.id === r.plan.methodology_id);
               const v = datasets.find((d) => d.id === r.dataset_id)?.version ?? 1;
+              const label = m?.display_name ?? (r.tournament_role === "ensemble" ? "Ensemble" : r.plan.methodology_id);
               return (
                 <button
                   key={r.id}
@@ -359,10 +407,10 @@ export default function Workspace({
                     r.id === selected.id
                       ? "border-zinc-500 bg-zinc-800 text-zinc-100"
                       : "border-zinc-800 text-zinc-400 hover:border-zinc-600"
-                  }`}
+                  } ${r.tournament_id ? "border-l-2 border-l-violet-500" : ""}`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[s] ?? "bg-zinc-500"}`} />
-                  {m?.display_name ?? r.plan.methodology_id} → {r.plan.target_column}
+                  {label} → {r.plan.target_column}
                   <span className="text-zinc-500">v{v}</span>
                 </button>
               );
@@ -370,21 +418,31 @@ export default function Workspace({
           </div>
         )}
         <div className="space-y-3">
-          <PlanCard
-            runId={selected.id}
-            datasetFilename={dataset?.filename ?? ""}
-            plan={selected.plan}
-            profile={dataset?.profile ?? null}
-            methodologies={methodologies}
-            status={status}
-            onApprove={onApprove}
-          />
-          {["queued", "running", "failed"].includes(status) && (
-            <TrainingCard
-              status={status}
-              progress={state?.progress ?? null}
-              error={state?.error ?? null}
+          {tournamentPending ? (
+            <TournamentCard
+              tournamentId={selected.tournament_id!}
+              datasetFilename={dataset?.filename ?? ""}
+              ensemble={ensembleKind}
+              candidates={tCandidates.map((r) => ({ run_id: r.id, plan: r.plan }))}
+              ensembleRun={tEnsemble ? { run_id: tEnsemble.id, plan: tEnsemble.plan } : null}
+              reasoning={tCandidates[0]?.plan.reasoning ?? ""}
+              methodologies={methodologies}
+              runStates={runStates}
+              onApproveTournament={onApproveTournament}
             />
+          ) : (
+            <PlanCard
+              runId={selected.id}
+              datasetFilename={dataset?.filename ?? ""}
+              plan={selected.plan}
+              profile={dataset?.profile ?? null}
+              methodologies={methodologies}
+              status={status}
+              onApprove={onApprove}
+            />
+          )}
+          {!tournamentPending && isTrainingLikeStatus(status) && (
+            <TrainingCard status={status} progress={trainingProgress} error={state?.error ?? null} />
           )}
           {status === "completed" && results && (
             <ReportCard runId={selected.id} results={results} />
@@ -396,6 +454,9 @@ export default function Workspace({
               oldDatasetVersion={parentDataset?.version}
               newDatasetVersion={dataset?.version}
             />
+          )}
+          {selected.tournament_id && tournamentContenders.length >= 2 && (
+            <TournamentComparisonCard contenders={tournamentContenders} />
           )}
           {status === "completed" && hasNewerData && (
             <button

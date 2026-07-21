@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 TaskType = Literal["binary_classification", "multiclass_classification", "regression", "forecasting"]
 DataShape = Literal["tabular", "timeseries", "text", "image"]
-TaskFamily = Literal["supervised", "forecasting", "clustering", "anomaly"]
+TaskFamily = Literal["supervised", "forecasting", "clustering", "anomaly", "ensemble"]
 
 
 class ProjectCreate(BaseModel):
@@ -63,6 +63,8 @@ class Plan(BaseModel):
     validation: ValidationSpec = Field(default_factory=ValidationSpec)
     primary_metric: str
     reasoning: str = ""
+    # Ensemble-only: the tournament candidate run ids this ensemble blends/stacks.
+    base_run_ids: list[str] | None = None
 
 
 class RunOut(BaseModel):
@@ -75,6 +77,8 @@ class RunOut(BaseModel):
     results: dict[str, Any] | None = None
     error: str | None = None
     parent_run_id: str | None = None
+    tournament_id: str | None = None
+    tournament_role: str | None = None
     created_at: datetime
     updated_at: datetime
 

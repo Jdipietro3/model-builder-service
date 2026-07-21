@@ -35,6 +35,9 @@ def _ensure_columns(engine) -> None:
         ],
         "runs": [
             ("parent_run_id", "VARCHAR(32)"),
+            ("tournament_id", "VARCHAR(32)"),
+            ("tournament_role", "VARCHAR(20)"),
+            ("tournament_interpreted", "BOOLEAN NOT NULL DEFAULT 0"),
         ],
     }
     with engine.connect() as conn:
@@ -43,6 +46,7 @@ def _ensure_columns(engine) -> None:
             for name, ddl_type in columns:
                 if name not in existing:
                     conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl_type}")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_runs_tournament_id ON runs(tournament_id)")
         conn.commit()
 
 

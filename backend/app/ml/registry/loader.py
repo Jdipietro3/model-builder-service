@@ -38,7 +38,7 @@ class MethodologySpec(BaseModel):
     id: str
     display_name: str
     data_shape: Literal["tabular", "timeseries", "text", "image"]
-    task_family: Literal["supervised", "forecasting", "clustering", "anomaly"]
+    task_family: Literal["supervised", "forecasting", "clustering", "anomaly", "ensemble"]
     task_types: list[str] = Field(default_factory=list)  # meaningful only for supervised
     when_to_use: str
     compute: ComputeSpec = Field(default_factory=ComputeSpec)

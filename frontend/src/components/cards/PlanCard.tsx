@@ -48,7 +48,10 @@ export default function PlanCard({
   const timeColumnOptions = datetimeColumns.length > 0 ? [...datetimeColumns] : [...columns];
   if (timeColumn && !timeColumnOptions.includes(timeColumn)) timeColumnOptions.unshift(timeColumn);
   const compatible = useMemo(
-    () => methodologies.filter((m) => m.task_types.includes(plan.task_type)),
+    () =>
+      methodologies.filter(
+        (m) => m.task_types.includes(plan.task_type) && m.task_family !== "ensemble",
+      ),
     [methodologies, plan.task_type],
   );
   const chosen = compatible.find((m) => m.id === methodologyId);

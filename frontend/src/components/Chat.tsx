@@ -7,12 +7,14 @@ import ProfileCard from "./cards/ProfileCard";
 import PlanCard from "./cards/PlanCard";
 import TrainingCard from "./cards/TrainingCard";
 import ReportCard from "./cards/ReportCard";
+import TournamentCard from "./cards/TournamentCard";
 
 interface CardContext {
   datasets: Dataset[];
   methodologies: Methodology[];
   runStates: Record<string, RunState>;
   onApprove: (runId: string, overrides: Partial<Plan>) => void;
+  onApproveTournament: (tournamentId: string) => void;
   /** Rail mode: cards render as small reference chips instead of full cards. */
   compact?: boolean;
 }
@@ -28,6 +30,7 @@ const CHIP_LABELS: Record<string, (card: Card) => string> = {
     return `Data updated → v${c.version} (${sign}${rows ?? 0} rows)`;
   },
   retrain: () => "Retraining on updated data",
+  tournament: () => "Tournament proposed",
 };
 
 function CardChip({ card }: { card: Card }) {
@@ -106,6 +109,22 @@ function CardView({ card, ctx }: { card: Card; ctx: CardContext }) {
       <p className="text-sm text-zinc-400">
         Retraining on updated data — see workspace for progress.
       </p>
+    );
+  }
+
+  if (card.type === "tournament") {
+    return (
+      <TournamentCard
+        tournamentId={card.tournament_id as string}
+        datasetFilename={card.dataset_filename as string}
+        ensemble={card.ensemble as "blend" | "stacking" | "none"}
+        candidates={card.candidates as { run_id: string; plan: Plan }[]}
+        ensembleRun={card.ensemble_run as { run_id: string; plan: Plan } | null}
+        reasoning={card.reasoning as string}
+        methodologies={ctx.methodologies}
+        runStates={ctx.runStates}
+        onApproveTournament={ctx.onApproveTournament}
+      />
     );
   }
 

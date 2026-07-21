@@ -1,0 +1,32 @@
+id: ensemble.stacking
+display_name: Stacked Meta-Model (auto-built)
+task_types: [binary_classification, multiclass_classification, regression]
+data_shape: tabular
+task_family: ensemble
+compute: { device: cpu }
+when_to_use: >
+  Auto-built by the tournament workflow only — never proposed directly. Trains
+  a meta-model (logistic regression for classification, ridge regression for
+  regression) on a tournament's completed candidates' out-of-fold predictions.
+  Prefer over a plain blend when candidates are diverse (different model
+  families / feature handling) and there are roughly 500+ rows to fit the
+  meta-model on without overfitting.
+preprocessing:
+  # Placeholder only — satisfies the registry's tabular-spec validator. The
+  # EnsembleRunner never builds a preprocessing pipeline from this block; each
+  # base candidate's own fitted pipeline is reused as-is.
+  numeric: { impute: median, scale: false }
+  categorical: { impute: most_frequent, encode: onehot }
+model:
+  # Placeholder only — never instantiated. EnsembleRunner hardcodes its own
+  # meta-model logic (LogisticRegression / Ridge on stacked OOF predictions);
+  # this class exists solely so MethodologySpec validation (which requires
+  # model.class) and the module-availability check pass. Chosen because
+  # sklearn is always installed.
+  class: sklearn.linear_model.LogisticRegression
+  params: {}
+  grid: {}
+metrics:
+  binary_classification: { default: roc_auc, supported: [roc_auc, pr_auc, f1, accuracy, balanced_accuracy] }
+  multiclass_classification: { default: f1_macro, supported: [f1_macro, accuracy, balanced_accuracy] }
+  regression: { default: r2, supported: [r2, mae, rmse] }

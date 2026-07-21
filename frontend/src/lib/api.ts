@@ -62,10 +62,12 @@ export interface Plan {
   task_family?: string;
   time_column?: string | null;
   horizon?: number | null;
+  // Ensemble-only: the tournament candidate run ids this ensemble blends/stacks.
+  base_run_ids?: string[] | null;
 }
 
 export interface Card {
-  type: "profile" | "plan" | "report" | "dataset_update" | "retrain";
+  type: "profile" | "plan" | "report" | "dataset_update" | "retrain" | "tournament";
   [key: string]: unknown;
 }
 
@@ -131,6 +133,21 @@ export interface HistoryTail {
   actual: number[];
 }
 
+// Present only on ensemble runs' results (results.ensemble); the rest of the
+// envelope fills normally so ReportCard renders unchanged.
+export interface EnsembleInfo {
+  type: "blend" | "stacking";
+  base: {
+    run_id: string;
+    methodology_id: string;
+    display_name: string;
+    weight?: number;
+    holdout_metrics: Record<string, number>;
+  }[];
+  weights?: Record<string, number>; // blend only
+  meta_model?: { class: string; coefficients?: Record<string, unknown> }; // stacking only
+}
+
 export interface Results {
   methodology: { id: string; display_name: string };
   task_type: string;
@@ -156,6 +173,8 @@ export interface Results {
   holdout_series?: HoldoutSeries;
   forecast?: ForecastSeries;
   history_tail?: HistoryTail;
+  // Ensemble-only.
+  ensemble?: EnsembleInfo;
 }
 
 export interface Run {
@@ -168,6 +187,8 @@ export interface Run {
   results: Results | null;
   error: string | null;
   parent_run_id?: string | null;
+  tournament_id?: string | null;
+  tournament_role?: "candidate" | "ensemble" | null;
   created_at: string;
   updated_at: string;
 }
@@ -202,6 +223,7 @@ export interface Methodology {
   task_types: string[];
   when_to_use: string;
   metrics: Record<string, { default: string; supported: string[] }>;
+  task_family: string;
 }
 
 export type ChatEvent =
@@ -260,6 +282,11 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan_overrides: planOverrides ?? null }),
     }).then((r) => json<Run>(r)),
+
+  approveTournament: (tournamentId: string) =>
+    fetch(`${API}/tournaments/${tournamentId}/approve`, { method: "POST" }).then((r) =>
+      json<Run[]>(r),
+    ),
 
   artifactUrl: (runId: string) => `${API}/runs/${runId}/artifact`,
 

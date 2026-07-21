@@ -1,0 +1,30 @@
+id: ensemble.blend
+display_name: Weighted Blend (auto-built)
+task_types: [binary_classification, multiclass_classification, regression]
+data_shape: tabular
+task_family: ensemble
+compute: { device: cpu }
+when_to_use: >
+  Auto-built by the tournament workflow only — never proposed directly. Combines
+  a tournament's completed candidate models via non-negative-least-squares
+  weights fit on out-of-fold predictions. Prefer over stacking for small
+  datasets or when candidates are similarly strong (a simple weighted average
+  is harder to overfit than a learned meta-model).
+preprocessing:
+  # Placeholder only — satisfies the registry's tabular-spec validator. The
+  # EnsembleRunner never builds a preprocessing pipeline from this block; each
+  # base candidate's own fitted pipeline is reused as-is.
+  numeric: { impute: median, scale: false }
+  categorical: { impute: most_frequent, encode: onehot }
+model:
+  # Placeholder only — never instantiated. EnsembleRunner hardcodes its own NNLS
+  # blend-weight logic; this class exists solely so MethodologySpec validation
+  # (which requires model.class) and the module-availability check pass. Chosen
+  # because sklearn is always installed.
+  class: sklearn.linear_model.LogisticRegression
+  params: {}
+  grid: {}
+metrics:
+  binary_classification: { default: roc_auc, supported: [roc_auc, pr_auc, f1, accuracy, balanced_accuracy] }
+  multiclass_classification: { default: f1_macro, supported: [f1_macro, accuracy, balanced_accuracy] }
+  regression: { default: r2, supported: [r2, mae, rmse] }

@@ -10,8 +10,9 @@ the tool_result; card, when present, is a structured payload streamed to the UI.
 """
 
 import json
+import uuid
 from dataclasses import dataclass
-from typing import Any, Callable, get_type_hints
+from typing import Any, Callable, Literal, get_type_hints
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session
@@ -81,6 +82,41 @@ class ProposePlanInput(ToolInput):
     )
     reasoning: str = Field(
         description="Why this framing and methodology fit, citing data characteristics."
+    )
+
+
+class ProposeTournamentInput(ToolInput):
+    dataset_id: str
+    task_type: TaskType
+    target_column: str | None = Field(
+        default=None,
+        description="Target/label column. Required for supervised tasks; omit for unsupervised.",
+    )
+    time_column: str | None = Field(
+        default=None,
+        description="For forecasting plans: the timestamp column that defines the time axis.",
+    )
+    horizon: int | None = Field(
+        default=None,
+        ge=1,
+        description="For forecasting plans: the number of future periods to predict.",
+    )
+    methodology_ids: list[str] = Field(
+        description="2-3 distinct methodology ids to run as tournament candidates."
+    )
+    excluded_columns: list[str] = Field(
+        default_factory=list,
+        description="Columns to exclude from features (IDs, leakage risks, etc.)",
+    )
+    n_splits: int = Field(default=5, ge=2, le=10)
+    primary_metric: str
+    ensemble: Literal["blend", "stacking", "none"] = Field(
+        description="Whether to auto-build a weighted blend or a stacked meta-model from the "
+        "completed candidates once they finish. Only valid for supervised tournaments — use "
+        "'none' for forecasting tournaments (no ensemble support in v1)."
+    )
+    reasoning: str = Field(
+        description="Why these candidates (and this ensemble choice) fit, citing data characteristics."
     )
 
 
@@ -205,6 +241,11 @@ def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
     except KeyError:
         data_shape = args.data_shape or "tabular"
         task_family = args.task_family or "supervised"
+    if task_family == "ensemble":
+        return {
+            "error": "ensemble.* methodologies are auto-built by the tournament workflow and "
+            "cannot be proposed directly. Use propose_tournament instead."
+        }, None
     if task_family == "forecasting":
         validation = {"n_splits": args.n_splits, "strategy": "time_ordered"}
     else:
@@ -236,6 +277,160 @@ def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
         "plan": plan,
     }
     return {"run_id": run.id, "status": "pending_approval", "plan": plan}, card
+
+
+@tool(
+    "propose_tournament",
+    "Propose a champion/challenger tournament: 2-3 candidate methodologies trained on the "
+    "same target, approved with a single click. For supervised tournaments, optionally "
+    "auto-builds a weighted blend or stacked ensemble from whichever candidates complete "
+    "successfully. Use this instead of propose_plan when the user wants to compare "
+    "approaches or find 'the best' model rather than committing to one methodology up "
+    "front. Validates every candidate against the registry and dataset, persists them as "
+    "pending runs, and shows the user one approve-all tournament card. Training does NOT "
+    "start until the user approves the card.",
+)
+def propose_tournament(db: Session, project_id: str, args: ProposeTournamentInput):
+    dataset = db.get(Dataset, args.dataset_id)
+    if not dataset or dataset.project_id != project_id:
+        return {"error": "Dataset not found in this project"}, None
+
+    methodology_ids = list(dict.fromkeys(args.methodology_ids))  # de-dupe, preserve order
+    if not (2 <= len(methodology_ids) <= 3):
+        return {
+            "error": "A tournament needs 2-3 distinct methodology_ids "
+            f"(got {len(methodology_ids)} after de-duplication)"
+        }, None
+
+    # Resolve every candidate's spec up front: reject unknown/ensemble ids and
+    # require a single common task_family (mixed-family tournaments aren't supported).
+    specs: dict[str, dict[str, Any]] = {}
+    for mid in methodology_ids:
+        try:
+            spec = get_spec(mid)
+        except KeyError as e:
+            return {"error": str(e)}, None
+        if spec["task_family"] == "ensemble":
+            return {
+                "error": f"'{mid}' is an ensemble.* methodology auto-built by the tournament "
+                "workflow; it cannot be a tournament candidate."
+            }, None
+        specs[mid] = spec
+
+    families = {spec["task_family"] for spec in specs.values()}
+    if len(families) > 1:
+        return {
+            "error": "All tournament candidates must share the same task_family "
+            f"(got: {', '.join(sorted(families))})"
+        }, None
+    family = families.pop()
+
+    if args.ensemble != "none" and family != "supervised":
+        return {
+            "error": f"ensemble='{args.ensemble}' is only supported for supervised "
+            f"tournaments; '{family}' tournaments must use ensemble='none'"
+        }, None
+
+    if family == "forecasting":
+        validation = {"n_splits": args.n_splits, "strategy": "time_ordered"}
+    else:
+        validation = {"n_splits": args.n_splits}
+
+    # Validate every candidate plan BEFORE persisting anything — all-or-nothing.
+    validated_plans: list[dict] = []
+    for mid in methodology_ids:
+        spec = specs[mid]
+        plan_data = {
+            "task_type": args.task_type,
+            "data_shape": spec["data_shape"],
+            "task_family": spec["task_family"],
+            "target_column": args.target_column,
+            "time_column": args.time_column,
+            "horizon": args.horizon,
+            "methodology_id": mid,
+            "excluded_columns": args.excluded_columns,
+            "validation": validation,
+            "primary_metric": args.primary_metric,
+            "reasoning": args.reasoning,
+        }
+        plan, errors = validate_plan(plan_data, dataset.profile)
+        if errors:
+            return {
+                "error": f"Plan validation failed for candidate '{mid}'",
+                "details": errors,
+            }, None
+        validated_plans.append(plan)
+
+    tournament_id = uuid.uuid4().hex
+    candidate_runs = [
+        Run(
+            project_id=project_id,
+            dataset_id=dataset.id,
+            plan=plan,
+            tournament_id=tournament_id,
+            tournament_role="candidate",
+        )
+        for plan in validated_plans
+    ]
+    for run in candidate_runs:
+        db.add(run)
+    db.flush()  # id defaults fire at flush; the ensemble plan needs real base_run_ids
+
+    ensemble_run: Run | None = None
+    if args.ensemble != "none":
+        ensemble_plan_data = {
+            "task_type": args.task_type,
+            "data_shape": "tabular",
+            "task_family": "ensemble",
+            "target_column": args.target_column,
+            "time_column": None,
+            "horizon": None,
+            "methodology_id": f"ensemble.{args.ensemble}",
+            "excluded_columns": args.excluded_columns,
+            "validation": {"n_splits": args.n_splits},
+            "primary_metric": args.primary_metric,
+            "reasoning": args.reasoning,
+            "base_run_ids": [r.id for r in candidate_runs],
+        }
+        ensemble_plan, errors = validate_plan(ensemble_plan_data, dataset.profile)
+        if errors:
+            db.rollback()
+            return {
+                "error": "Ensemble plan validation failed",
+                "details": errors,
+            }, None
+        ensemble_run = Run(
+            project_id=project_id,
+            dataset_id=dataset.id,
+            plan=ensemble_plan,
+            tournament_id=tournament_id,
+            tournament_role="ensemble",
+            status="waiting",
+        )
+        db.add(ensemble_run)
+        db.flush()
+
+    db.commit()
+
+    card = {
+        "type": "tournament",
+        "tournament_id": tournament_id,
+        "dataset_id": dataset.id,
+        "dataset_filename": dataset.filename,
+        "ensemble": args.ensemble,
+        "candidates": [{"run_id": r.id, "plan": r.plan} for r in candidate_runs],
+        "ensemble_run": (
+            {"run_id": ensemble_run.id, "plan": ensemble_run.plan} if ensemble_run else None
+        ),
+        "reasoning": args.reasoning,
+    }
+    result = {
+        "tournament_id": tournament_id,
+        "candidate_run_ids": [r.id for r in candidate_runs],
+        "ensemble_run_id": ensemble_run.id if ensemble_run else None,
+        "status": "pending_approval",
+    }
+    return result, card
 
 
 @tool("get_run_status", "Get the current status and progress of a training run.")

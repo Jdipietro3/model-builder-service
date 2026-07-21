@@ -97,6 +97,31 @@ def _validate_forecasting(
         )
 
 
+def _validate_ensemble(
+    plan: Plan, spec: dict[str, Any], profile: dict[str, Any], errors: list[str]
+) -> None:
+    """Ensemble checks: a target column (evaluation needs it), at least two base
+    candidates to combine, and a primary_metric the spec supports for this task_type.
+    Everything else (base run existence/status/family-compatibility) is validated by
+    propose_tournament before an ensemble plan is even built."""
+    column_names = {c["name"] for c in profile["columns"]}
+    if not plan.target_column:
+        errors.append("target_column is required for ensemble task_family")
+    elif plan.target_column not in column_names:
+        errors.append(f"Target column '{plan.target_column}' not found in dataset")
+
+    if not plan.base_run_ids or len(plan.base_run_ids) < 2:
+        errors.append("An ensemble plan requires at least 2 base_run_ids")
+
+    if plan.task_type in spec["metrics"]:
+        supported = spec["metrics"][plan.task_type]["supported"]
+        if plan.primary_metric not in supported:
+            errors.append(
+                f"Metric '{plan.primary_metric}' not supported for {plan.task_type} "
+                f"with this methodology (supported: {', '.join(supported)})"
+            )
+
+
 def _not_yet_runnable(family: str) -> FamilyValidator:
     """Stub validator for families whose runners are scaffolds.
 
@@ -119,6 +144,7 @@ _FAMILY_VALIDATORS: dict[str, FamilyValidator] = {
     "forecasting": _validate_forecasting,
     "clustering": _not_yet_runnable("clustering"),
     "anomaly": _not_yet_runnable("anomaly"),
+    "ensemble": _validate_ensemble,
 }
 
 

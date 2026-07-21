@@ -6,12 +6,17 @@ import logging
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 
+from sqlalchemy import select, text
+
 from .db import SessionLocal
 from .ml.artifacts import build_bundle
 from .ml.registry.loader import get_spec
 from .ml.training import run_plan
 from .models import Dataset, Run
 from .orchestrator.agent import run_turn
+
+# Terminal Run statuses (as opposed to pending_approval/queued/running/waiting/claimed).
+_TERMINAL_STATUSES = ("completed", "failed")
 
 logger = logging.getLogger("jobs")
 
@@ -69,7 +74,28 @@ def _execute(run_id: str) -> None:
         progress("preparing", 5, "Starting training job")
 
         dataset = db.get(Dataset, run.dataset_id)
-        outcome = run_plan(dataset.path, run.plan, progress)
+
+        # Ensemble runs need their completed base candidates' fitted pipelines +
+        # results at training time. This enrichment is in-memory only — the
+        # persisted Run.plan stays lean (just base_run_ids) so it round-trips
+        # through validate_plan/the tournament card unchanged.
+        exec_plan = run.plan
+        if run.plan.get("task_family") == "ensemble":
+            base_runs = []
+            for base_id in run.plan.get("base_run_ids") or []:
+                base_run = db.get(Run, base_id)
+                if base_run is not None and base_run.status == "completed":
+                    base_runs.append(
+                        {
+                            "run_id": base_run.id,
+                            "methodology_id": base_run.plan.get("methodology_id"),
+                            "artifact_path": base_run.artifact_path,
+                            "results": base_run.results,
+                        }
+                    )
+            exec_plan = {**run.plan, "base_runs": base_runs}
+
+        outcome = run_plan(dataset.path, exec_plan, progress)
 
         progress("artifacts", 92, "Building artifact bundle")
         zip_path = build_bundle(run.id, outcome, run.plan)
@@ -80,7 +106,10 @@ def _execute(run_id: str) -> None:
         run.progress = {"stage": "done", "pct": 100, "message": "Training complete"}
         db.commit()
 
-        _interpret_run(run)
+        if run.tournament_id:
+            _maybe_promote_ensemble(run.tournament_id)
+        else:
+            _interpret_run(run)
     except Exception:
         db.rollback()
         run = db.get(Run, run_id)
@@ -88,6 +117,8 @@ def _execute(run_id: str) -> None:
         run.error = traceback.format_exc(limit=8)
         run.progress = {"stage": "failed", "pct": 100, "message": "Training failed"}
         db.commit()
+        if run.tournament_id:
+            _maybe_promote_ensemble(run.tournament_id)
     finally:
         db.close()
 
@@ -154,3 +185,136 @@ def _interpret_run(run: Run) -> None:
         asyncio.run(_drain_interpretation_turn(run.project_id, notification))
     except Exception:
         logger.warning("Results interpretation failed for run %s", run.id, exc_info=True)
+
+
+def _maybe_promote_ensemble(tournament_id: str) -> None:
+    """Race-safe promotion/failure decision for a tournament's ensemble run.
+
+    Called after every tournament candidate AND the ensemble run itself reaches a
+    terminal state (from both the success and failure paths of ``_execute``), so it
+    may run concurrently from multiple worker threads for the same tournament. All
+    state transitions go through ``UPDATE ... WHERE status='waiting'`` compare-and-set
+    statements so exactly one caller wins each transition (the SQLite engine's WAL +
+    busy-timeout serializes the concurrent writers; the loser simply sees rowcount 0).
+    """
+    with SessionLocal() as db:
+        siblings = db.scalars(select(Run).where(Run.tournament_id == tournament_id)).all()
+        candidates = [r for r in siblings if r.tournament_role == "candidate"]
+        ensemble = next((r for r in siblings if r.tournament_role == "ensemble"), None)
+
+        if any(c.status not in _TERMINAL_STATUSES for c in candidates):
+            return  # other candidates are still training
+
+        if ensemble is not None and ensemble.status == "waiting":
+            completed = [c for c in candidates if c.status == "completed"]
+            if len(completed) >= 2:
+                result = db.execute(
+                    text("UPDATE runs SET status='claimed' WHERE id=:id AND status='waiting'"),
+                    {"id": ensemble.id},
+                )
+                db.commit()
+                if result.rowcount == 1:
+                    submit_training(ensemble.id)
+            else:
+                skip_message = (
+                    "Ensemble skipped: fewer than 2 candidate models completed successfully."
+                )
+                db.execute(
+                    text(
+                        "UPDATE runs SET status='failed', error=:error "
+                        "WHERE id=:id AND status='waiting'"
+                    ),
+                    {"id": ensemble.id, "error": skip_message},
+                )
+                db.commit()
+
+        # Re-read fresh: the block above may have just moved the ensemble to
+        # 'claimed'/'failed', or this call may BE the ensemble's own completion (in
+        # which case its status here is already terminal from _execute).
+        db.expire_all()
+        siblings = db.scalars(select(Run).where(Run.tournament_id == tournament_id)).all()
+        if all(r.status in _TERMINAL_STATUSES for r in siblings):
+            _fire_tournament_interpretation_once(tournament_id, siblings)
+
+
+def _build_tournament_interpretation_notification(tournament_id: str, siblings: list[Run]) -> str:
+    """Hidden system-notification text for the single tournament-completion
+    interpretation turn: lists every completed run so the LLM can get_results on
+    each and crown a winner, with variants for ensemble completed/failed/skipped
+    and for the all-candidates-failed case."""
+    candidates = [r for r in siblings if r.tournament_role == "candidate"]
+    ensemble = next((r for r in siblings if r.tournament_role == "ensemble"), None)
+    completed_candidates = [r for r in candidates if r.status == "completed"]
+    failed_candidates = [r for r in candidates if r.status == "failed"]
+
+    if not completed_candidates:
+        ids = ", ".join(r.id for r in failed_candidates) or "none"
+        return (
+            f"[system notification] Tournament {tournament_id} has finished, but ALL "
+            f"{len(candidates)} candidate model(s) failed to train (run ids: {ids}). There is no "
+            "winner to crown — tell the user the tournament failed, and suggest calling "
+            "get_run_status on a candidate if they want the error detail."
+        )
+
+    lines = [
+        f"[system notification] Tournament {tournament_id} has finished. "
+        f"{len(completed_candidates)} of {len(candidates)} candidate model(s) completed "
+        f"successfully (run ids: {', '.join(r.id for r in completed_candidates)})."
+    ]
+    if failed_candidates:
+        lines.append(
+            f"{len(failed_candidates)} candidate(s) failed and are excluded from comparison "
+            f"(run ids: {', '.join(r.id for r in failed_candidates)})."
+        )
+    if ensemble is not None:
+        if ensemble.status == "completed":
+            lines.append(
+                f"An ensemble ({ensemble.plan.get('methodology_id')}, run id {ensemble.id}) was "
+                "auto-built from the completed candidates and also finished training — include "
+                "it as a contender alongside the candidates."
+            )
+        elif (ensemble.error or "").startswith("Ensemble skipped"):
+            lines.append(
+                "The ensemble was skipped (fewer than 2 candidates completed successfully) — do "
+                "not treat it as a contender."
+            )
+        else:
+            lines.append(
+                f"The ensemble (run id {ensemble.id}) failed to train — mention this in passing "
+                "but do not treat it as a contender."
+            )
+    lines.append(
+        "Call get_results for every completed run listed above (including the ensemble if it "
+        "completed) and crown a winner for the user: name it explicitly, justify the choice with "
+        "the primary metric and any caveats worth flagging, and give a clear recommendation."
+    )
+    return "\n".join(lines)
+
+
+def _fire_tournament_interpretation_once(tournament_id: str, siblings: list[Run]) -> None:
+    """Second compare-and-set (independent of the promotion one above) so the
+    single tournament-completion interpretation fires exactly once, regardless of
+    which sibling run's completion triggers the check. Lock row is the ensemble run
+    when the tournament has one, else the lexicographically-smallest candidate id
+    (any single row all callers agree on works as the mutex)."""
+    candidates = [r for r in siblings if r.tournament_role == "candidate"]
+    ensemble = next((r for r in siblings if r.tournament_role == "ensemble"), None)
+    lock_id = ensemble.id if ensemble is not None else min(c.id for c in candidates)
+
+    with SessionLocal() as db:
+        result = db.execute(
+            text("UPDATE runs SET tournament_interpreted=1 WHERE id=:id AND tournament_interpreted=0"),
+            {"id": lock_id},
+        )
+        db.commit()
+        if result.rowcount != 1:
+            return  # a concurrent finisher already fired the tournament interpretation
+
+    notification = _build_tournament_interpretation_notification(tournament_id, siblings)
+    project_id = siblings[0].project_id
+    try:
+        asyncio.run(_drain_interpretation_turn(project_id, notification))
+    except Exception:
+        logger.warning(
+            "Tournament interpretation failed for tournament %s", tournament_id, exc_info=True
+        )

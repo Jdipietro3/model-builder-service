@@ -21,7 +21,7 @@ from .base import (
 from . import image_source, tabular_source, text_source, timeseries_source  # noqa: E402,F401
 
 # Import for registration side effects (task families).
-from . import anomaly, clustering, forecasting, supervised  # noqa: E402,F401
+from . import anomaly, clustering, ensemble, forecasting, supervised  # noqa: E402,F401
 
 # deep_learning is shared machinery, not a registered runner — imported so the
 # EpochTrainer base is reachable as app.ml.pipeline.deep_learning.

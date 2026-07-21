@@ -297,6 +297,65 @@ export default function ProjectPage() {
               created_at: new Date().toISOString(),
             };
             setDatasets((prev) => (prev.some((d) => d.id === ds.id) ? prev : [...prev, ds]));
+          } else if (e.card.type === "tournament") {
+            // A proposed tournament creates one pending run per candidate plus a
+            // waiting run for the auto-ensemble (if any) — surface all of them in
+            // the workspace, same pattern as the plan branch above but N-wide.
+            const c = e.card;
+            const now = new Date().toISOString();
+            const tournamentId = c.tournament_id as string;
+            const datasetId = c.dataset_id as string;
+            const candidates = c.candidates as { run_id: string; plan: Plan }[];
+            const ensembleRun = c.ensemble_run as { run_id: string; plan: Plan } | null;
+            const newRuns: Run[] = candidates.map((cand) => ({
+              id: cand.run_id,
+              project_id: id,
+              dataset_id: datasetId,
+              status: "pending_approval",
+              plan: cand.plan,
+              progress: null,
+              results: null,
+              error: null,
+              tournament_id: tournamentId,
+              tournament_role: "candidate",
+              created_at: now,
+              updated_at: now,
+            }));
+            if (ensembleRun) {
+              newRuns.push({
+                id: ensembleRun.run_id,
+                project_id: id,
+                dataset_id: datasetId,
+                status: "waiting",
+                plan: ensembleRun.plan,
+                progress: null,
+                results: null,
+                error: null,
+                tournament_id: tournamentId,
+                tournament_role: "ensemble",
+                created_at: now,
+                updated_at: now,
+              });
+            }
+            setRuns((prev) => {
+              const existingIds = new Set(prev.map((r) => r.id));
+              return [...prev, ...newRuns.filter((r) => !existingIds.has(r.id))];
+            });
+            setRunStates((prev) => {
+              const next = { ...prev };
+              for (const r of newRuns) {
+                if (!next[r.id]) {
+                  next[r.id] = {
+                    status: r.status,
+                    progress: null,
+                    results: null,
+                    error: null,
+                    live: false,
+                  };
+                }
+              }
+              return next;
+            });
           } else if (e.card.type === "retrain") {
             // The retrain tool already submitted training server-side by the
             // time this card streams down — synthesize the new run as queued
@@ -411,6 +470,42 @@ export default function ProjectPage() {
     [watchRun],
   );
 
+  const approveTournament = useCallback(
+    async (tournamentId: string) => {
+      try {
+        const tournamentRuns = await api.approveTournament(tournamentId);
+        setRuns((prev) => {
+          const byId = new Map(prev.map((r) => [r.id, r]));
+          for (const r of tournamentRuns) byId.set(r.id, r);
+          // Preserve original order for existing runs; append any brand-new ones
+          // (there shouldn't be any at this point, but stay defensive).
+          const merged = prev.map((r) => byId.get(r.id) ?? r);
+          for (const r of tournamentRuns) {
+            if (!prev.some((p) => p.id === r.id)) merged.push(r);
+          }
+          return merged;
+        });
+        setRunStates((prev) => {
+          const next = { ...prev };
+          for (const run of tournamentRuns) {
+            next[run.id] = {
+              status: run.status,
+              progress: run.progress,
+              results: run.results,
+              error: run.error,
+              live: true,
+            };
+          }
+          return next;
+        });
+        for (const run of tournamentRuns) watchRun(run.id);
+      } catch (e) {
+        alert(`Could not start tournament training: ${extractErrorDetail(e)}`);
+      }
+    },
+    [watchRun],
+  );
+
   const handlePredict = useCallback(
     async (runId: string, file: File) => {
       const p = await api.predict(runId, file);
@@ -500,6 +595,7 @@ export default function ProjectPage() {
     methodologies,
     runStates,
     onApprove: approveRun,
+    onApproveTournament: approveTournament,
     compact: workspaceMode,
   };
 
@@ -534,6 +630,7 @@ export default function ProjectPage() {
               predictions={predictions}
               methodologies={methodologies}
               onApprove={approveRun}
+              onApproveTournament={approveTournament}
               onPredict={handlePredict}
               onUploadDataset={handleUpload}
               onRetrain={handleRetrain}
