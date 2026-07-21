@@ -1,6 +1,6 @@
 "use client";
 
-import { api, Results } from "@/lib/api";
+import { api, Diagnostics, DiagnosticsCalibration, DiagnosticsSegment, Results } from "@/lib/api";
 
 // Sequential hue for magnitude encodings (importance bars, matrix cells) —
 // dark-surface step of the reference palette's blue ramp.
@@ -356,6 +356,166 @@ function ForecastChart({ results }: { results: Results }) {
   );
 }
 
+/** Compact per-column segment breakdown table, worst-performing segment highlighted. */
+function SegmentTable({ segment }: { segment: DiagnosticsSegment }) {
+  const label = METRIC_LABELS[segment.metric] ?? segment.metric;
+  const lowerBetter = LOWER_BETTER.has(segment.metric);
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <span className="font-mono text-xs text-zinc-300">{segment.column}</span>
+        <span className="text-[11px] text-zinc-500">
+          overall {label} {fmt(segment.overall)}
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
+          <thead>
+            <tr className="text-zinc-500">
+              <th className="pb-1 pr-3 text-left font-normal">Segment</th>
+              <th className="pb-1 pr-3 text-right font-normal">n</th>
+              {Object.keys(segment.segments[0]?.metrics ?? {}).map((k) => (
+                <th key={k} className="pb-1 pr-3 text-right font-normal">
+                  {METRIC_LABELS[k] ?? k}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {segment.segments.map((s) => {
+              const isWorst = s.value === segment.worst.value && s.n === segment.worst.n;
+              return (
+                <tr
+                  key={s.value}
+                  className={isWorst ? "bg-red-950/30" : undefined}
+                >
+                  <td
+                    className={`py-1 pr-3 ${isWorst ? "text-red-300" : "text-zinc-300"}`}
+                    title={isWorst ? `Weakest segment (${lowerBetter ? "highest" : "lowest"} ${label})` : undefined}
+                  >
+                    {isWorst && <span className="mr-1">⚠</span>}
+                    {s.value}
+                  </td>
+                  <td className="py-1 pr-3 text-right text-zinc-500">{s.n.toLocaleString()}</td>
+                  {Object.entries(s.metrics).map(([k, v]) => (
+                    <td
+                      key={k}
+                      className={`py-1 pr-3 text-right ${isWorst ? "text-red-300" : "text-zinc-300"}`}
+                    >
+                      {fmt(v)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Lightweight reliability plot (predicted vs. observed positive rate per bin) — inline SVG, no chart lib. */
+function CalibrationView({ calibration }: { calibration: DiagnosticsCalibration }) {
+  const { brier, bins } = calibration;
+  const W = 200;
+  const H = 200;
+  const pad = 20;
+  const plot = W - pad * 2;
+  const maxN = Math.max(...bins.map((b) => b.n), 1);
+  const px = (v: number) => pad + Math.min(Math.max(v, 0), 1) * plot;
+  const py = (v: number) => H - pad - Math.min(Math.max(v, 0), 1) * plot;
+
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline justify-between">
+        <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Calibration</h4>
+        <span className="text-xs text-zinc-400">
+          Brier score <span className="font-mono text-zinc-300">{fmt(brier)}</span>{" "}
+          <span className="text-zinc-600">(lower is better)</span>
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-4">
+        <svg viewBox={`0 0 ${W} ${H}`} width={180} height={180} className="shrink-0" role="img" aria-label="Reliability diagram">
+          {/* diagonal = perfect calibration */}
+          <line x1={px(0)} y1={py(0)} x2={px(1)} y2={py(1)} stroke="#52525b" strokeDasharray="3 3" strokeWidth={1} />
+          <line x1={pad} x2={pad} y1={pad} y2={H - pad} stroke="#27272a" strokeWidth={1} />
+          <line x1={pad} x2={W - pad} y1={H - pad} y2={H - pad} stroke="#27272a" strokeWidth={1} />
+          <text x={pad} y={H - 4} fontSize={9} fill="#71717a">0</text>
+          <text x={W - pad} y={H - 4} textAnchor="end" fontSize={9} fill="#71717a">1</text>
+          <polyline
+            points={bins.map((b) => `${px(b.p_pred)},${py(b.p_true)}`).join(" ")}
+            fill="none"
+            stroke={SEQ_HUE}
+            strokeWidth={1.5}
+          />
+          {bins.map((b, i) => (
+            <circle
+              key={i}
+              cx={px(b.p_pred)}
+              cy={py(b.p_true)}
+              r={2 + 4 * Math.sqrt(b.n / maxN)}
+              fill={SEQ_HUE}
+              fillOpacity={0.75}
+            >
+              <title>{`predicted ${fmt(b.p_pred)} · observed ${fmt(b.p_true)} · n=${b.n}`}</title>
+            </circle>
+          ))}
+        </svg>
+        <p className="max-w-[16rem] text-[11px] leading-relaxed text-zinc-500">
+          Predicted probability (x) vs. actual observed rate (y) per bin, dot size ∝ bin size. Points
+          on the dashed diagonal are well-calibrated.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DiagnosticsSection({ diagnostics }: { diagnostics: Diagnostics }) {
+  const { segments, calibration, single_feature } = diagnostics;
+  const leaky = single_feature.filter((f) => f.ratio >= 0.95);
+  const topFeature = single_feature[0];
+
+  if (segments.length === 0 && !calibration && single_feature.length === 0) return null;
+
+  return (
+    <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-3">
+      <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        Diagnostics — where this model is trustworthy
+      </h4>
+
+      {leaky.length > 0 && (
+        <div className="rounded-lg border border-red-900/70 bg-red-950/30 px-3 py-2.5">
+          {leaky.map((f) => (
+            <p key={f.feature} className="text-xs leading-relaxed text-red-200/90">
+              ⚠ <span className="font-mono">{f.feature}</span> alone reaches{" "}
+              <span className="font-semibold">{(f.ratio * 100).toFixed(0)}%</span> of full model
+              performance ({fmt(f.solo_score)} vs {fmt(f.full_score)}) — likely leakage.
+            </p>
+          ))}
+        </div>
+      )}
+      {leaky.length === 0 && topFeature && (
+        <p className="text-[11px] text-zinc-500">
+          Top single feature <span className="font-mono text-zinc-400">{topFeature.feature}</span>{" "}
+          alone reaches {(topFeature.ratio * 100).toFixed(0)}% of full model performance —
+          within normal range.
+        </p>
+      )}
+
+      {segments.length > 0 && (
+        <div className="space-y-3">
+          {segments.map((s) => (
+            <SegmentTable key={s.column} segment={s} />
+          ))}
+        </div>
+      )}
+
+      {calibration && <CalibrationView calibration={calibration} />}
+    </div>
+  );
+}
+
 export default function ReportCard({ runId, results }: { runId: string; results: Results }) {
   const { holdout } = results;
   const primary = results.primary_metric;
@@ -431,6 +591,8 @@ export default function ReportCard({ runId, results }: { runId: string; results:
             </p>
           </div>
         )}
+
+        {results.diagnostics && <DiagnosticsSection diagnostics={results.diagnostics} />}
 
         {!isForecasting && results.feature_importances && (
           <ImportanceBars items={results.feature_importances} />

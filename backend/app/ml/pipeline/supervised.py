@@ -164,8 +164,51 @@ class SupervisedRunner:
         )
         progress("evaluating", 82, "Computing feature importances")
         importances = evaluation.permutation_importances(fitted, X_test, y_test, scoring)
+
+        progress("evaluating", 88, "Running trust diagnostics")
+        diagnostics: dict = {"segments": [], "calibration": None, "single_feature": []}
+        try:
+            y_pred_test = fitted.predict(X_test)
+            y_proba_test = (
+                fitted.predict_proba(X_test)
+                if is_classification and hasattr(fitted, "predict_proba")
+                else None
+            )
+        except Exception:
+            y_pred_test, y_proba_test = None, None
+
+        if y_pred_test is not None:
+            try:
+                diagnostics["segments"] = evaluation.segment_metrics(
+                    X_test, y_test, y_pred_test, y_proba_test, task_type, primary_metric, importances
+                )
+            except Exception:
+                diagnostics["segments"] = []
+
+            try:
+                diagnostics["calibration"] = evaluation.calibration_bins(y_test, y_proba_test)
+            except Exception:
+                diagnostics["calibration"] = None
+
+            try:
+                full_score = holdout["metrics"].get(primary_metric)
+                diagnostics["single_feature"] = evaluation.single_feature_leakage(
+                    X_train, y_train, X_test, y_test, task_type, primary_metric, importances, full_score
+                )
+            except Exception:
+                diagnostics["single_feature"] = []
+
         caveats = evaluation.build_caveats(
-            task_type, primary_metric, holdout, importances, profile, plan, len(y_test)
+            task_type,
+            primary_metric,
+            holdout,
+            importances,
+            profile,
+            plan,
+            len(y_test),
+            segments=diagnostics["segments"],
+            calibration=diagnostics["calibration"],
+            single_feature=diagnostics["single_feature"],
         )
 
         results = {
@@ -183,6 +226,7 @@ class SupervisedRunner:
             "features_used": feature_cols,
             "features_dropped": dropped,
             "caveats": caveats,
+            "diagnostics": diagnostics,
             "n_train": int(len(X_train)),
             "n_test": int(len(X_test)),
             "training_seconds": round(time.time() - t0, 1),

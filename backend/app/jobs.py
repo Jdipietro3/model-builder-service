@@ -138,19 +138,26 @@ def _build_interpretation_notification(run_id: str, plan: dict, parent_run_id: s
             f"of run {parent_run_id} on an updated version of the dataset. Call get_results "
             "for BOTH runs and compare them for the user: did the data update improve the "
             "headline metric, which metrics moved notably, and should they prefer the new "
-            "model? Include any caveats."
+            "model? Using each run's results.diagnostics, address any leakage risk, "
+            "weak-performing data segments, and probability calibration issues, and state "
+            "plainly what the new model can be trusted for versus not."
         )
     if plan.get("task_family") == "forecasting":
         return (
             f"[system notification] Training run {run_id} has completed. Call get_results and "
             "give the user a plain-language interpretation: the headline metric vs the "
-            "seasonal-naive baseline and whether the model beats it, what the forecast shows "
-            "over the horizon, and any caveats."
+            "seasonal-naive baseline and whether the model beats it, and what the forecast "
+            "shows over the horizon. If results.diagnostics is present, address any leakage "
+            "risk, weak-performing data segments, and probability calibration; either way, "
+            "state plainly what this forecast can be trusted for versus not."
         )
     return (
         f"[system notification] Training run {run_id} has completed. Call get_results and give "
-        "the user a plain-language interpretation: headline metric vs the naive baseline, what "
-        "drives predictions, and any caveats."
+        "the user a plain-language interpretation: headline metric vs the naive baseline and "
+        "what drives predictions. Using results.diagnostics, address any leakage risk (e.g. a "
+        "single feature that alone nearly matches full-model performance), weak-performing "
+        "data segments, and probability calibration issues — then state plainly what this "
+        "model can be trusted for versus not."
     )
 
 
@@ -285,8 +292,10 @@ def _build_tournament_interpretation_notification(tournament_id: str, siblings: 
             )
     lines.append(
         "Call get_results for every completed run listed above (including the ensemble if it "
-        "completed) and crown a winner for the user: name it explicitly, justify the choice with "
-        "the primary metric and any caveats worth flagging, and give a clear recommendation."
+        "completed) and crown a winner for the user: name it explicitly and justify the choice "
+        "with the primary metric. Using each run's results.diagnostics, flag any leakage risk, "
+        "weak-performing data segments, and probability calibration issues, and state plainly "
+        "what the winning model can be trusted for versus not before giving your recommendation."
     )
     return "\n".join(lines)
 

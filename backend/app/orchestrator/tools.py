@@ -17,7 +17,7 @@ from typing import Any, Callable, Literal, get_type_hints
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session
 
-from ..ml.plans import validate_plan
+from ..ml.plans import diagnose_plan, validate_plan
 from ..ml.profiling import profile_path
 from ..ml.registry.loader import get_spec, list_methodologies
 from ..models import Dataset, Run
@@ -266,6 +266,10 @@ def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
     plan, errors = validate_plan(plan_data, dataset.profile)
     if errors:
         return {"error": "Plan validation failed", "details": errors}, None
+    # Non-blocking pre-approval warnings (leakage, target missingness, near-constant
+    # features) ride on the plan so both the LLM and the plan card see them.
+    warnings = diagnose_plan(plan, dataset.profile or {})
+    plan["warnings"] = warnings
     run = Run(project_id=project_id, dataset_id=dataset.id, plan=plan)
     db.add(run)
     db.commit()
@@ -276,7 +280,7 @@ def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
         "dataset_filename": dataset.filename,
         "plan": plan,
     }
-    return {"run_id": run.id, "status": "pending_approval", "plan": plan}, card
+    return {"run_id": run.id, "status": "pending_approval", "plan": plan, "warnings": warnings}, card
 
 
 @tool(

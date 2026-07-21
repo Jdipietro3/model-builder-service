@@ -206,6 +206,57 @@ export default function PlanCard({
         )}
       </div>
 
+      {plan.warnings && plan.warnings.length > 0 && (
+        <div className="border-t border-zinc-800 px-4 py-3">
+          <div className="space-y-2">
+            {plan.warnings.map((w, i) => {
+              const high = w.severity === "high";
+              return (
+                <div
+                  key={i}
+                  className={`rounded-lg border px-3 py-2.5 ${
+                    high
+                      ? "border-red-900/70 bg-red-950/30"
+                      : "border-amber-900/60 bg-amber-950/30"
+                  }`}
+                >
+                  <div
+                    className={`mb-1 text-xs font-medium ${
+                      high ? "text-red-300" : "text-amber-300"
+                    }`}
+                  >
+                    {high ? "High risk" : "Worth checking"} · {w.category.replace(/_/g, " ")}
+                  </div>
+                  <p
+                    className={`text-xs leading-relaxed ${
+                      high ? "text-red-200/80" : "text-amber-200/80"
+                    }`}
+                  >
+                    {w.message}
+                  </p>
+                  {w.columns.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {w.columns.map((c) => (
+                        <span
+                          key={c}
+                          className={`rounded-full border px-2 py-0.5 font-mono text-[11px] ${
+                            high
+                              ? "border-red-900 text-red-300"
+                              : "border-amber-900 text-amber-300"
+                          }`}
+                        >
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {plan.reasoning && (
         <div className="border-t border-zinc-800 px-4 py-3">
           <div className="mb-1 text-xs font-medium text-zinc-500">Why this plan</div>

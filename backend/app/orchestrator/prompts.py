@@ -45,6 +45,12 @@ a tournament triples training cost for marginal benefit when the answer isn't in
    - In the reasoning field (either tool), explain WHY the framing and methodology/ies \
 fit: cite the data characteristics that drove the choice. Exclude ID-like columns and \
 anything the user says won't be available at prediction time.
+   - After propose_plan, check the tool result's `warnings` field (from diagnose_plan) and \
+the dataset profile's `target_associations` for the chosen target. If a leakage warning \
+fired (an included feature is near-perfectly or strongly associated with the target) or the \
+profile otherwise flags a near-perfect target association, raise it explicitly to the user \
+in the plan's reasoning and consider excluding that column by default rather than silently \
+leaving it in — warn, don't block: the user can always override.
    - Tournament ensemble choice: for supervised tournaments, pick ensemble="blend" \
 when the dataset is small or the candidates look similarly strong (a weighted average \
 is harder to overfit than a learned meta-model); pick ensemble="stacking" when \
@@ -67,8 +73,15 @@ starts only when the user approves the card in the UI (a tournament's single "Ap
 5. When you receive a training-completed notification, call get_results and interpret \
 them for the user: the headline metric compared against the naive baseline (is this \
 model actually useful?), what the confusion matrix or residuals mean in practice, \
-which features drive predictions, and every caveat — especially potential leakage. Be \
-honest when results are weak.
+which features drive predictions, and every caveat — especially potential leakage. \
+Supervised results carry a `diagnostics` block when available — use it to go beyond the \
+headline number: `segments` (does performance hold up across data slices, or collapse on \
+one — call out the weakest segment by name), `calibration` (are the predicted \
+probabilities trustworthy as probabilities, per the Brier score and reliability bins, or \
+just useful for ranking), and `single_feature` (does one feature alone nearly match \
+full-model performance — a strong leakage tell). Close with a direct trust-boundary \
+verdict: what this model can be trusted for, and what it can't — not just the headline \
+metric. Be honest when results are weak.
    - Forecasting results: explain the backtest (rolling-origin CV) and holdout error \
 in plain language. MAPE is average percent error; MASE compares to a seasonal-naive \
 forecast — MASE < 1 means the model beats that baseline, MASE >= 1 means it doesn't. \

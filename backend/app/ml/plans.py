@@ -189,3 +189,107 @@ def validate_plan(
     if errors:
         return None, errors
     return plan.model_dump(), []
+
+
+# Leakage-warning thresholds mirror the profile-level warning in
+# ml/profiling/tabular.py (ASSOCIATION_LEAK_THRESHOLD = 0.9).
+_LEAKAGE_HIGH_THRESHOLD = 0.9
+_LEAKAGE_MEDIUM_THRESHOLD = 0.75
+_TARGET_MISSINGNESS_THRESHOLD = 20
+_NEAR_CONSTANT_PCT_THRESHOLD = 99
+
+
+def diagnose_plan(plan: dict[str, Any], profile: dict[str, Any]) -> list[dict[str, Any]]:
+    """Non-blocking pre-approval warnings for a validated plan (warn, don't block —
+    flagged plans stay approvable). Never touches validate_plan's error path; a
+    missing/absent `target_associations` (e.g. a dataset profiled before item 1
+    landed) is treated as a graceful no-op, not an error.
+    """
+    warnings: list[dict[str, Any]] = []
+    target = plan.get("target_column")
+    if not target:
+        return warnings
+    excluded = set(plan.get("excluded_columns") or [])
+    columns = profile.get("columns") or []
+    columns_by_name = {c["name"]: c for c in columns}
+
+    # (a) leakage: included features strongly associated with the target.
+    associations = (profile.get("target_associations") or {}).get(target) or []
+    high_cols = [
+        a["feature"]
+        for a in associations
+        if a.get("feature") not in excluded and (a.get("score") or 0) >= _LEAKAGE_HIGH_THRESHOLD
+    ]
+    medium_cols = [
+        a["feature"]
+        for a in associations
+        if a.get("feature") not in excluded
+        and _LEAKAGE_MEDIUM_THRESHOLD <= (a.get("score") or 0) < _LEAKAGE_HIGH_THRESHOLD
+    ]
+    if high_cols:
+        verb = "is" if len(high_cols) == 1 else "are"
+        warnings.append(
+            {
+                "category": "leakage",
+                "severity": "high",
+                "message": (
+                    f"{', '.join(high_cols)} {verb} near-perfectly associated with target "
+                    f"'{target}' — likely leakage (verify these are genuinely available at "
+                    "prediction time)."
+                ),
+                "columns": high_cols,
+            }
+        )
+    if medium_cols:
+        verb = "is" if len(medium_cols) == 1 else "are"
+        warnings.append(
+            {
+                "category": "leakage",
+                "severity": "medium",
+                "message": (
+                    f"{', '.join(medium_cols)} {verb} strongly associated with target "
+                    f"'{target}' — worth checking for leakage."
+                ),
+                "columns": medium_cols,
+            }
+        )
+
+    # (b) target_high_missingness
+    target_info = columns_by_name.get(target)
+    if target_info is not None and (target_info.get("pct_missing") or 0) > _TARGET_MISSINGNESS_THRESHOLD:
+        warnings.append(
+            {
+                "category": "target_high_missingness",
+                "severity": "medium",
+                "message": (
+                    f"Target '{target}' is missing in {target_info['pct_missing']}% of rows; "
+                    "those rows are dropped before training, shrinking the effective dataset."
+                ),
+                "columns": [target],
+            }
+        )
+
+    # (c) near_constant_feature: an included feature whose top value covers >99%.
+    near_constant: list[str] = []
+    for c in columns:
+        name = c.get("name")
+        if name == target or name in excluded:
+            continue
+        top_values = c.get("top_values")
+        if top_values and (top_values[0].get("pct") or 0) > _NEAR_CONSTANT_PCT_THRESHOLD:
+            near_constant.append(name)
+    if near_constant:
+        verb = "is" if len(near_constant) == 1 else "are"
+        warnings.append(
+            {
+                "category": "near_constant_feature",
+                "severity": "medium",
+                "message": (
+                    f"{', '.join(near_constant)} {verb} nearly constant (one value covers "
+                    f">{_NEAR_CONSTANT_PCT_THRESHOLD}% of rows) — unlikely to carry signal."
+                ),
+                "columns": near_constant,
+            }
+        )
+
+    return warnings

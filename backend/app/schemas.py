@@ -47,6 +47,16 @@ class ValidationSpec(BaseModel):
     n_splits: int = Field(default=5, ge=2, le=10)
 
 
+class PlanWarning(BaseModel):
+    """Non-blocking pre-approval warning surfaced on a proposed plan (diagnose_plan
+    in ml/plans.py). Purely informational — flagged plans stay approvable."""
+
+    category: Literal["leakage", "target_high_missingness", "near_constant_feature"]
+    severity: Literal["high", "medium"]
+    message: str
+    columns: list[str] = Field(default_factory=list)
+
+
 class Plan(BaseModel):
     """The structured training plan the orchestrator proposes and the user approves."""
 
@@ -65,6 +75,10 @@ class Plan(BaseModel):
     reasoning: str = ""
     # Ensemble-only: the tournament candidate run ids this ensemble blends/stacks.
     base_run_ids: list[str] | None = None
+    # Non-blocking pre-approval warnings from diagnose_plan (leakage, target
+    # missingness, near-constant features). None/absent for plans proposed before
+    # this field existed or when diagnose_plan found nothing to flag.
+    warnings: list[PlanWarning] | None = None
 
 
 class RunOut(BaseModel):

@@ -37,6 +37,12 @@ export interface ColumnInfo {
   top_values?: TopValue[];
 }
 
+export interface TargetAssociation {
+  feature: string;
+  score: number; // 0-1
+  method: "pearson" | "cramers_v" | "correlation_ratio";
+}
+
 export interface Profile {
   // Optional fields only exist on profiles generated after the enriched profiler.
   data_shape?: string;
@@ -47,6 +53,16 @@ export interface Profile {
   target_candidates: string[];
   time_column_candidates?: string[];
   warnings: string[];
+  // Present on profiles generated after the leakage-aware profiler; absent on
+  // datasets profiled before this change. Sorted score desc per target column.
+  target_associations?: Record<string, TargetAssociation[]>;
+}
+
+export interface PlanWarning {
+  category: "leakage" | "target_high_missingness" | "near_constant_feature";
+  severity: "high" | "medium";
+  message: string;
+  columns: string[];
 }
 
 export interface Plan {
@@ -64,6 +80,8 @@ export interface Plan {
   horizon?: number | null;
   // Ensemble-only: the tournament candidate run ids this ensemble blends/stacks.
   base_run_ids?: string[] | null;
+  // Non-blocking pre-approval warnings (leakage, missingness, near-constant features).
+  warnings?: PlanWarning[];
 }
 
 export interface Card {
@@ -148,6 +166,33 @@ export interface EnsembleInfo {
   meta_model?: { class: string; coefficients?: Record<string, unknown> }; // stacking only
 }
 
+export interface DiagnosticsSegment {
+  column: string;
+  metric: string;
+  overall: number;
+  segments: { value: string; n: number; metrics: Record<string, number> }[];
+  worst: { value: string; n: number; score: number };
+}
+
+export interface DiagnosticsCalibration {
+  metric: "brier";
+  brier: number;
+  bins: { p_pred: number; p_true: number; n: number }[];
+}
+
+export interface DiagnosticsSingleFeature {
+  feature: string;
+  solo_score: number;
+  full_score: number;
+  ratio: number;
+}
+
+export interface Diagnostics {
+  segments: DiagnosticsSegment[];
+  calibration: DiagnosticsCalibration | null;
+  single_feature: DiagnosticsSingleFeature[];
+}
+
 export interface Results {
   methodology: { id: string; display_name: string };
   task_type: string;
@@ -161,6 +206,8 @@ export interface Results {
   features_used?: string[];
   features_dropped?: { name: string; reason: string }[];
   caveats: string[];
+  // Absent on runs trained before this change and on forecasting runs.
+  diagnostics?: Diagnostics;
   n_train: number;
   n_test: number;
   training_seconds: number;
