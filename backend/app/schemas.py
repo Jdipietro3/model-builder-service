@@ -122,6 +122,38 @@ class ApproveRequest(BaseModel):
     plan_overrides: dict[str, Any] | None = None
 
 
+class DeploymentCreate(BaseModel):
+    run_id: str
+    name: str | None = None
+
+
+class DeploymentOut(BaseModel):
+    id: str
+    project_id: str
+    run_id: str
+    name: str
+    status: str
+    version: int
+    contract: dict[str, Any] | None = None
+    training_distribution: dict[str, Any] | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PredictRequest(BaseModel):
+    records: list[dict[str, Any]]
+
+
+class PromoteRequest(BaseModel):
+    run_id: str
+
+
+class DeploymentStatusUpdate(BaseModel):
+    status: Literal["active", "disabled"]
+
+
 class ProjectDetail(ProjectOut):
     messages: list[MessageOut]
     datasets: list[DatasetOut]

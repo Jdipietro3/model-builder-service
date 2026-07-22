@@ -92,3 +92,35 @@ class Run(Base):
     tournament_interpreted: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+
+class Deployment(Base):
+    __tablename__ = "deployments"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"))
+    name: Mapped[str] = mapped_column(String(200))
+    # active | disabled
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    version: Mapped[int] = mapped_column(default=1)
+    # {feature_columns: [{name, dtype, example}], example_record, target_column,
+    #  task_type, endpoint} — see deployments.py::build_contract
+    contract: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Training-time reference distribution ({"kind": "class_counts"|"stats", ...})
+    # for drift comparison against serving_stats' served_distribution.
+    training_distribution: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+
+class InferenceLog(Base):
+    __tablename__ = "inference_logs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    deployment_id: Mapped[str] = mapped_column(ForeignKey("deployments.id"), index=True)
+    n_rows: Mapped[int] = mapped_column(default=0)
+    latency_ms: Mapped[float] = mapped_column(default=0.0)
+    # class_counts or stats — see ml/scoring.py::served_summary
+    summary: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)

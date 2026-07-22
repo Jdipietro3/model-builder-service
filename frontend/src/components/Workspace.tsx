@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Dataset, Methodology, Plan, Prediction, Run } from "@/lib/api";
+import { Dataset, Deployment, Methodology, Plan, Prediction, Run } from "@/lib/api";
 import { RunState } from "@/app/projects/[id]/page";
 import ProfileCard from "./cards/ProfileCard";
 import PlanCard from "./cards/PlanCard";
@@ -11,6 +11,7 @@ import ComparisonCard from "./cards/ComparisonCard";
 import TournamentCard from "./cards/TournamentCard";
 import TournamentComparisonCard, { Contender } from "./cards/TournamentComparisonCard";
 import PredictionCard from "./cards/PredictionCard";
+import DeploymentCard from "./cards/DeploymentCard";
 
 /** A dataset is a chain tip if no other dataset's parent_dataset_id points at it. */
 function isChainTip(d: Dataset, all: Dataset[]): boolean {
@@ -284,6 +285,7 @@ export default function Workspace({
   runs,
   runStates,
   predictions,
+  deployments,
   methodologies,
   onApprove,
   onApproveTournament,
@@ -291,11 +293,15 @@ export default function Workspace({
   onUploadDataset,
   onRetrain,
   onUpdateDataset,
+  onDeploy,
+  onPromote,
+  onSetStatus,
 }: {
   datasets: Dataset[];
   runs: Run[];
   runStates: Record<string, RunState>;
   predictions: Prediction[];
+  deployments: Deployment[];
   methodologies: Methodology[];
   onApprove: (runId: string, overrides: Partial<Plan>) => void;
   onApproveTournament: (tournamentId: string) => void;
@@ -303,10 +309,14 @@ export default function Workspace({
   onUploadDataset: (file: File) => void;
   onRetrain: (runId: string) => Promise<void>;
   onUpdateDataset: (datasetId: string, file: File, mode: "replace" | "append") => Promise<void>;
+  onDeploy: (runId: string, name?: string) => Promise<void>;
+  onPromote: (deploymentId: string, runId: string) => Promise<void>;
+  onSetStatus: (deploymentId: string, status: "active" | "disabled") => Promise<void>;
 }) {
   const ordered = runs.slice().reverse(); // newest first
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [retrainingIds, setRetrainingIds] = useState<Set<string>>(new Set());
+  const [deployingIds, setDeployingIds] = useState<Set<string>>(new Set());
 
   // Select the newest run whenever one appears (incl. a freshly proposed plan).
   useEffect(() => {
@@ -334,6 +344,21 @@ export default function Workspace({
       await onRetrain(selected.id);
     } finally {
       setRetrainingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(selected.id);
+        return next;
+      });
+    }
+  }
+
+  const deploying = deployingIds.has(selected.id);
+
+  async function handleDeployClick() {
+    setDeployingIds((prev) => new Set(prev).add(selected.id));
+    try {
+      await onDeploy(selected.id);
+    } finally {
+      setDeployingIds((prev) => {
         const next = new Set(prev);
         next.delete(selected.id);
         return next;
@@ -374,6 +399,23 @@ export default function Workspace({
       ? "stacking"
       : "blend"
     : "none";
+
+  // Live deployment is only offered for completed supervised/ensemble runs —
+  // forecasting runs don't fit the single-record predict contract (mirrors the
+  // same task_type check used below for the batch PredictSection).
+  const canDeploy = status === "completed" && selected.plan.task_type !== "forecasting";
+  const selectedDeployments = deployments.filter((d) => d.run_id === selected.id);
+
+  // One deployment per project — if it exists but isn't serving the selected run,
+  // offer to promote the selected run onto it instead of creating a new deployment.
+  const projectDeployment = deployments[0] ?? null;
+  const canPromoteToLive =
+    !!projectDeployment &&
+    projectDeployment.run_id !== selected.id &&
+    status === "completed" &&
+    selected.plan.task_type !== "forecasting" &&
+    selected.plan.target_column === projectDeployment.contract.target_column &&
+    selected.plan.task_type === projectDeployment.contract.task_type;
 
   // Synthesized progress for the ensemble's pre-promotion "waiting" state (and the
   // brief "claimed" state during promotion) when no live SSE progress has arrived yet.
@@ -467,6 +509,54 @@ export default function Workspace({
               {retraining ? "Retraining…" : `Retrain on updated data (v${datasetTip?.version ?? 1})`}
             </button>
           )}
+          {canDeploy && deployments.length === 0 && (
+            <button
+              onClick={handleDeployClick}
+              disabled={deploying}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+            >
+              {deploying ? "Deploying…" : "Deploy this model"}
+            </button>
+          )}
+          {canPromoteToLive && (
+            <button
+              onClick={() => onPromote(projectDeployment!.id, selected.id)}
+              className="rounded-lg border border-emerald-700 px-4 py-2 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-950/40"
+            >
+              Promote to live deployment (v{projectDeployment!.version})
+            </button>
+          )}
+          {selectedDeployments.map((d) => {
+            // Shallow-copy in live results (from runStates) without mutating the
+            // original run objects — mirrors the parentResults/tCandidates pattern above.
+            const resolve = (r: Run): Run => ({ ...r, results: runStates[r.id]?.results ?? r.results });
+            const currentRun = runs.find((r) => r.id === d.run_id);
+            const resolvedCurrentRun = currentRun ? resolve(currentRun) : null;
+            const candidates = runs
+              .map(resolve)
+              .filter(
+                (r) =>
+                  (runStates[r.id]?.status ?? r.status) === "completed" &&
+                  r.plan.task_type !== "forecasting" &&
+                  r.plan.target_column === d.contract.target_column &&
+                  r.plan.task_type === d.contract.task_type &&
+                  r.id !== d.run_id &&
+                  r.results != null,
+              );
+            return (
+              <DeploymentCard
+                key={d.id}
+                deployment={d}
+                currentRun={resolvedCurrentRun}
+                candidates={candidates}
+                onPromote={async (runId) => {
+                  await onPromote(d.id, runId);
+                  setSelectedId(runId);
+                }}
+                onSetStatus={onSetStatus}
+              />
+            );
+          })}
         </div>
       </section>
 

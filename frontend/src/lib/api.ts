@@ -273,6 +273,51 @@ export interface Methodology {
   task_family: string;
 }
 
+export interface DeploymentContractFeature {
+  name: string;
+  dtype: string;
+  example: unknown;
+}
+
+export interface DeploymentContract {
+  feature_columns: DeploymentContractFeature[];
+  target_column: string;
+  task_type: string;
+  example_record: Record<string, unknown>;
+  endpoint: string;
+}
+
+export type Dist =
+  | { kind: "class_counts"; proportions: Record<string, number> }
+  | { kind: "stats"; mean: number; min: number; max: number };
+
+export interface Deployment {
+  id: string;
+  project_id: string;
+  run_id: string;
+  name: string;
+  status: "active" | "disabled";
+  version: number;
+  contract: DeploymentContract;
+  training_distribution: Dist;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServingStats {
+  n_requests: number;
+  n_rows: number;
+  avg_latency_ms: number;
+  served_distribution: Dist | null;
+  training_distribution: Dist;
+  drift_note: string;
+}
+
+export interface PredictResponse {
+  predictions: unknown[];
+  probabilities?: Record<string, number>[];
+}
+
 export type ChatEvent =
   | { type: "text_delta"; text: string }
   | { type: "card"; card: Card }
@@ -348,6 +393,42 @@ export const api = {
   predictionDownloadUrl: (predictionId: string) => `${API}/predictions/${predictionId}/download`,
 
   runEventsUrl: (runId: string) => `${API}/runs/${runId}/events`,
+
+  createDeployment: (projectId: string, runId: string, name?: string) =>
+    fetch(`${API}/projects/${projectId}/deployments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_id: runId, name: name ?? null }),
+    }).then((r) => json<Deployment>(r)),
+
+  listDeployments: (projectId: string) =>
+    fetch(`${API}/projects/${projectId}/deployments`).then((r) => json<Deployment[]>(r)),
+
+  getDeployment: (id: string) => fetch(`${API}/deployments/${id}`).then((r) => json<Deployment>(r)),
+
+  predictDeployment: (id: string, records: Record<string, unknown>[]) =>
+    fetch(`${API}/deployments/${id}/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ records }),
+    }).then((r) => json<PredictResponse>(r)),
+
+  getDeploymentStats: (id: string) =>
+    fetch(`${API}/deployments/${id}/stats`).then((r) => json<ServingStats>(r)),
+
+  promoteDeployment: (id: string, runId: string) =>
+    fetch(`${API}/deployments/${id}/promote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_id: runId }),
+    }).then((r) => json<Deployment>(r)),
+
+  setDeploymentStatus: (id: string, status: "active" | "disabled") =>
+    fetch(`${API}/deployments/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    }).then((r) => json<Deployment>(r)),
 
   /** POST a chat message and stream back orchestrator events. */
   async chatStream(

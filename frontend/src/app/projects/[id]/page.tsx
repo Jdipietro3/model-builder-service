@@ -8,6 +8,7 @@ import {
   Card,
   ChatMessage,
   Dataset,
+  Deployment,
   Methodology,
   Plan,
   Prediction,
@@ -109,6 +110,7 @@ export default function ProjectPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [runStates, setRunStates] = useState<Record<string, RunState>>({});
   const [streamText, setStreamText] = useState<string | null>(null);
   const [streamCards, setStreamCards] = useState<Card[]>([]);
@@ -127,14 +129,15 @@ export default function ProjectPage() {
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([api.getProject(id), api.listMethodologies()])
-      .then(([p, m]) => {
+    Promise.all([api.getProject(id), api.listMethodologies(), api.listDeployments(id)])
+      .then(([p, m, d]) => {
         setProject(p);
         setMethodologies(m);
         setMessages(p.messages.filter((msg) => !msg.hidden));
         setDatasets(p.datasets);
         setRuns(p.runs);
         setPredictions(p.predictions);
+        setDeployments(d);
         const states: Record<string, RunState> = {};
         for (const r of p.runs) {
           states[r.id] = {
@@ -514,6 +517,41 @@ export default function ProjectPage() {
     [],
   );
 
+  const handleDeploy = useCallback(
+    async (runId: string, name?: string) => {
+      try {
+        const deployment = await api.createDeployment(id, runId, name);
+        setDeployments((prev) =>
+          prev.some((d) => d.id === deployment.id) ? prev : [...prev, deployment],
+        );
+      } catch (e) {
+        alert(`Could not create deployment: ${extractErrorDetail(e)}`);
+      }
+    },
+    [id],
+  );
+
+  const handlePromote = useCallback(async (deploymentId: string, runId: string) => {
+    try {
+      const updated = await api.promoteDeployment(deploymentId, runId);
+      setDeployments((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+    } catch (e) {
+      alert(`Could not promote deployment: ${extractErrorDetail(e)}`);
+    }
+  }, []);
+
+  const handleSetDeploymentStatus = useCallback(
+    async (deploymentId: string, status: "active" | "disabled") => {
+      try {
+        const updated = await api.setDeploymentStatus(deploymentId, status);
+        setDeployments((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+      } catch (e) {
+        alert(`Could not update deployment status: ${extractErrorDetail(e)}`);
+      }
+    },
+    [],
+  );
+
   const handleRetrain = useCallback(
     async (runId: string) => {
       try {
@@ -628,6 +666,7 @@ export default function ProjectPage() {
               runs={runs}
               runStates={runStates}
               predictions={predictions}
+              deployments={deployments}
               methodologies={methodologies}
               onApprove={approveRun}
               onApproveTournament={approveTournament}
@@ -635,6 +674,9 @@ export default function ProjectPage() {
               onUploadDataset={handleUpload}
               onRetrain={handleRetrain}
               onUpdateDataset={handleUpdateDataset}
+              onDeploy={handleDeploy}
+              onPromote={handlePromote}
+              onSetStatus={handleSetDeploymentStatus}
             />
           </div>
           <aside className="flex w-95 shrink-0 flex-col border-l border-zinc-800 bg-zinc-950">

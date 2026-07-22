@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
-from .routes import chat, datasets, projects, runs, tournaments
+from .routes import chat, datasets, deployments, projects, runs, tournaments
 
 # uvicorn only configures its own loggers; give app loggers (e.g. the
 # orchestrator's token-usage lines) a root handler at INFO.
@@ -33,6 +33,8 @@ app.include_router(chat.router)
 app.include_router(runs.router)
 app.include_router(runs.predictions_router)
 app.include_router(tournaments.router)
+app.include_router(deployments.router)
+app.include_router(deployments.deployment_router)
 
 
 @app.get("/health")
