@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-22T00:00:00Z",
+  "title": "Design System: Model Builder",
+  "extensions": {
+    "colorMeta": {
+      "ink-void": {
+        "role": "neutral",
+        "displayName": "Ink Void",
+        "canonical": "#09090b",
+        "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8"]
+      },
+      "ink-panel": {
+        "role": "neutral",
+        "displayName": "Ink Panel",
+        "canonical": "#18181b",
+        "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8"]
+      },
+      "ink-raised": {
+        "role": "neutral",
+        "displayName": "Ink Raised",
+        "canonical": "#27272a",
+        "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8"]
+      },
+      "ink-primary": {
+        "role": "neutral",
+        "displayName": "Ink Primary",
+        "canonical": "#f4f4f5",
+        "tonalRamp": ["#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#f4f4f5"]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted",
+        "canonical": "#a1a1aa",
+        "contrastOnGround": "7.75:1",
+        "note": "The floor for all readable text, including placeholders.",
+        "tonalRamp": ["#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#f4f4f5"]
+      },
+      "ink-inert": {
+        "role": "neutral",
+        "displayName": "Ink Inert",
+        "canonical": "#71717a",
+        "contrastOnGround": "4.12:1",
+        "note": "FAILS WCAG AA. Non-text use only: icon strokes, dividers, disabled marks, status dots.",
+        "tonalRamp": ["#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#f4f4f5"]
+      },
+      "signal-green": {
+        "role": "primary",
+        "displayName": "Signal Green",
+        "canonical": "#10b981",
+        "note": "The only accent hue. Under 10% of any screen.",
+        "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7"]
+      },
+      "alarm-red": {
+        "role": "tertiary",
+        "displayName": "Alarm Red",
+        "canonical": "#f87171",
+        "note": "Failure, error, destructive. Never emphasis.",
+        "tonalRamp": ["#450a0a", "#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5"]
+      },
+      "caution-amber": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "#fcd34d",
+        "note": "Warnings, caveats, degraded-but-working states.",
+        "tonalRamp": ["#451a03", "#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d"]
+      },
+      "readout-sky": {
+        "role": "tertiary",
+        "displayName": "Readout Sky",
+        "canonical": "#7dd3fc",
+        "note": "Neutral information, in-flight and streaming activity, deltas.",
+        "tonalRamp": ["#082f49", "#0c4a6e", "#075985", "#0369a1", "#0284c7", "#0ea5e9", "#38bdf8", "#7dd3fc"]
+      },
+      "bracket-violet": {
+        "role": "tertiary",
+        "displayName": "Bracket Violet",
+        "canonical": "#c4b5fd",
+        "note": "Tournament and ensemble namespace only. A namespace, not a mood.",
+        "tonalRamp": ["#2e1065", "#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page-level identity only. One per route, never inside a panel." },
+      "headline": { "displayName": "Headline", "purpose": "Names a major region. Currently missing from the codebase; the sanctioned fix for flat scrolls." },
+      "title": { "displayName": "Title", "purpose": "Card and section headings inside a region." },
+      "body": { "displayName": "Body", "purpose": "Prose, chat messages, reasoning. Cap at 65-75ch." },
+      "label": { "displayName": "Label", "purpose": "The workhorse: metadata, table cells, chips, captions, form labels." },
+      "data": { "displayName": "Data", "purpose": "Machine-produced values only: metrics, IDs, endpoints, payloads, code." }
+    },
+    "shadows": [
+      {
+        "name": "focus-ring",
+        "value": "0 0 0 2px #09090b, 0 0 0 4px #059669",
+        "purpose": "Standard keyboard focus. Two rings so the indicator survives on all three surface layers. Required on every interactive element."
+      },
+      {
+        "name": "active-lift",
+        "value": "0 0 0 1px #059669",
+        "purpose": "Optional emphasis for the selected item in a list where a background change alone reads too subtly."
+      }
+    ],
+    "motion": [
+      { "name": "duration-state", "value": "150ms", "purpose": "Color and background state transitions. The system default." },
+      { "name": "duration-reveal", "value": "250ms", "purpose": "Ceiling for any reveal or disclosure. Users are in a task; do not make them wait." },
+      { "name": "ease-out-quart", "value": "cubic-bezier(0.25, 1, 0.5, 1)", "purpose": "Default easing. No bounce, no elastic, ever." },
+      { "name": "reduced-motion", "value": "@media (prefers-reduced-motion: reduce) { transition-duration: 0.01ms; animation: none; }", "purpose": "Non-optional companion to every animation in the system." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action on a view. One per screen, never two.",
+      "html": "<button class=\"ds-btn-primary\">Create project</button>",
+      "css": ".ds-btn-primary { background: #059669; color: #ffffff; font-family: Geist, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; line-height: 1.55; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-btn-primary:hover { background: #10b981; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #09090b, 0 0 0 4px #059669; } .ds-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "The correct default for every action that is not the single primary one.",
+      "html": "<button class=\"ds-btn-ghost\">Retrain</button>",
+      "css": ".ds-btn-ghost { background: #18181b; color: #d4d4d8; font-family: Geist, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; line-height: 1.45; padding: 6px 12px; border: 1px solid #27272a; border-radius: 8px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.25, 1, 0.5, 1), color 150ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-btn-ghost:hover { background: #27272a; color: #f4f4f5; } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px #09090b, 0 0 0 4px #059669; } .ds-btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Single-line field. Placeholder sits at Ink Muted, never Ink Inert.",
+      "html": "<input class=\"ds-input-text\" type=\"text\" placeholder=\"New project name, e.g. 'Churn prediction'\" />",
+      "css": ".ds-input-text { background: #18181b; color: #f4f4f5; font-family: Geist, system-ui, sans-serif; font-size: 0.875rem; font-weight: 400; line-height: 1.55; padding: 10px 16px; border: 1px solid #27272a; border-radius: 8px; width: 100%; transition: border-color 150ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-input-text::placeholder { color: #a1a1aa; } .ds-input-text:focus { outline: none; border-color: #059669; box-shadow: 0 0 0 2px #09090b, 0 0 0 4px #059669; }"
+    },
+    {
+      "name": "Panel Surface",
+      "kind": "card",
+      "refersTo": "panel-surface",
+      "description": "The working surface. A region cut into the panel, not a sheet floating above it. Flat at rest, always.",
+      "html": "<div class=\"ds-panel\"><h3 class=\"ds-panel-title\">Holdout evaluation</h3><p class=\"ds-panel-body\">Scored on 20% held out before any feature selection ran.</p><span class=\"ds-panel-value\">roc_auc 0.9106</span></div>",
+      "css": ".ds-panel { background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 16px; } .ds-panel-title { color: #f4f4f5; font-family: Geist, system-ui, sans-serif; font-size: 1rem; font-weight: 500; line-height: 1.4; margin: 0 0 8px; } .ds-panel-body { color: #d4d4d8; font-family: Geist, system-ui, sans-serif; font-size: 0.875rem; font-weight: 400; line-height: 1.55; margin: 0 0 12px; } .ds-panel-value { color: #a1a1aa; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.75rem; line-height: 1.45; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip-status",
+      "description": "Compact state marker. Semantic hues only; never colored for variety.",
+      "html": "<span class=\"ds-chip\">v3</span> <span class=\"ds-chip ds-chip-live\">Live</span> <span class=\"ds-chip ds-chip-warn\">Caveat</span>",
+      "css": ".ds-chip { display: inline-block; background: #27272a; color: #a1a1aa; font-family: Geist, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; line-height: 1.45; padding: 2px 8px; border-radius: 4px; } .ds-chip-live { background: #022c22; color: #34d399; } .ds-chip-warn { background: #451a03; color: #fcd34d; }"
+    },
+    {
+      "name": "Status Dot",
+      "kind": "custom",
+      "refersTo": "chip-status",
+      "description": "Signature primitive. Run and deployment state in the smallest possible footprint. The one sanctioned use of Ink Inert, because it is not text.",
+      "html": "<span class=\"ds-dot-row\"><span class=\"ds-dot ds-dot-done\"></span>Completed</span><span class=\"ds-dot-row\"><span class=\"ds-dot ds-dot-live\"></span>Training</span><span class=\"ds-dot-row\"><span class=\"ds-dot ds-dot-fail\"></span>Failed</span><span class=\"ds-dot-row\"><span class=\"ds-dot ds-dot-idle\"></span>Queued</span>",
+      "css": ".ds-dot-row { display: inline-flex; align-items: center; gap: 8px; margin-right: 16px; color: #a1a1aa; font-family: Geist, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; line-height: 1.45; } .ds-dot { width: 7px; height: 7px; border-radius: 9999px; flex: none; } .ds-dot-done { background: #10b981; } .ds-dot-live { background: #38bdf8; animation: ds-pulse 2s cubic-bezier(0.25, 1, 0.5, 1) infinite; } .ds-dot-fail { background: #f87171; } .ds-dot-idle { background: #71717a; } @keyframes ds-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } } @media (prefers-reduced-motion: reduce) { .ds-dot-live { animation: none; } }"
+    },
+    {
+      "name": "Run List Item",
+      "kind": "nav",
+      "refersTo": "panel-surface",
+      "description": "The product's primary navigation. Carries at most two signals: its name and one state. A third signal means it wants to be a table row.",
+      "html": "<nav class=\"ds-runlist\"><button class=\"ds-run\"><span class=\"ds-dot ds-dot-done\"></span><span class=\"ds-run-name\">Random Forest</span></button><button class=\"ds-run ds-run-active\"><span class=\"ds-dot ds-dot-done\"></span><span class=\"ds-run-name\">Logistic Regression</span></button></nav>",
+      "css": ".ds-runlist { display: flex; flex-direction: column; gap: 2px; background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 4px; } .ds-run { display: flex; align-items: center; gap: 8px; width: 100%; background: transparent; color: #a1a1aa; font-family: Geist, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; line-height: 1.45; text-align: left; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.25, 1, 0.5, 1), color 150ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-run:hover { background: #27272a; color: #f4f4f5; } .ds-run:focus-visible { outline: none; box-shadow: 0 0 0 2px #18181b, 0 0 0 4px #059669; } .ds-run-active { background: #27272a; color: #f4f4f5; box-shadow: inset 2px 0 0 #10b981; } .ds-dot { width: 7px; height: 7px; border-radius: 9999px; flex: none; } .ds-dot-done { background: #10b981; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Instrument Panel",
+    "overview": "This is the console of a serious machine. A user comes here to read state, form judgment, and act: which model won, whether the evaluation is honest, what is serving traffic right now. The interface is the glass over the dials. It is not the subject. Every pixel that draws attention to itself is a pixel stolen from a readout the user needed.\n\nThe system is near-black, near-monochrome, and dense. One green carries every affirmative signal; four further hues carry status and nothing else. Depth is built from tonal layers of the same neutral rather than from shadow, so the surface reads as one continuous machined panel with elements cut into it, not as paper stacked on paper. Type is small and tight by design, because practitioners read tables and metrics here, not prose.\n\nThis system explicitly rejects the black-box AutoML dashboard, the no-code business SaaS, the generic AI-chat wrapper, and the overloaded enterprise admin. The last of these is the live risk: this codebase drifts toward it every time a feature adds its own controls without ranking them.",
+    "keyCharacteristics": [
+      "Near-black neutral ground (#09090b) with two tonal layers above it",
+      "Exactly one accent hue; status hues are semantic, never decorative",
+      "Flat surfaces, hairline borders, no ambient shadow",
+      "Dense by intent: 12px and 14px carry the working UI",
+      "Monospace reserved strictly for machine-produced values"
+    ],
+    "rules": [
+      { "name": "The One Signal Rule", "body": "Signal Green is the only non-status hue in the system and must occupy under 10% of any screen. If two things on screen are green, at most one of them is an action; the other is state. Three green things means the screen has lost its hierarchy.", "section": "colors" },
+      { "name": "The Inert Floor Rule", "body": "#71717a (Ink Inert) is prohibited for text of any size. It measures 4.12:1 against the application ground and fails WCAG AA. #a1a1aa (Ink Muted) is the floor for every readable string, including placeholders, and measures 7.75:1. This rule applies to the 98 existing call sites; they are debt, not precedent.", "section": "colors" },
+      { "name": "The Semantic Hue Rule", "body": "Red, amber, sky, and violet carry meaning only. A hue may never be chosen because a component needed visual variety. If a new feature wants a new color, it wants a new meaning, and it must justify that meaning before it gets a hue.", "section": "colors" },
+      { "name": "The Two-Workhorse Rule", "body": "Label (12px) and Body (14px) carry the working interface and should remain the overwhelming majority of rendered text. Density is a feature for this audience. The ladder above them exists to rank regions, not to inflate the UI: adding a Headline is how you create hierarchy, enlarging body copy is not.", "section": "typography" },
+      { "name": "The Machine Voice Rule", "body": "Geist Mono is reserved for values the system produced: metrics, run IDs, endpoints, payloads, column names, code. Never set a human-authored label, button, or heading in mono. If you cannot tell whether a string came from the machine or the writer, it is not mono.", "section": "typography" },
+      { "name": "The Weight-Before-Size Rule", "body": "When two elements must be distinguished inside one panel, change weight or ink color first. Reach for a larger type step only when the elements belong to different regions.", "section": "typography" },
+      { "name": "The Flat-At-Rest Rule", "body": "No element carries a shadow in its default state. Prohibited: ambient card shadows, drop shadows on panels, soft glows behind accents, and any box-shadow used to imply hierarchy. If a surface needs to feel higher, move it up the tonal ramp instead.", "section": "elevation" },
+      { "name": "The Border-Is-The-Edge Rule", "body": "Every surface boundary is a 1px hairline (#27272a, or #3f3f46 when sitting on a raised layer). Borders are never thicker than 1px, and never colored as an accent stripe.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use #a1a1aa (Ink Muted) as the floor for every readable string, including placeholders. It measures 7.75:1 against the ground.",
+      "Do build depth from the tonal ramp: #09090b ground, #18181b panel, #27272a raised.",
+      "Do give every interactive element the standard two-ring focus treatment. The audience includes keyboard-driven practitioners.",
+      "Do reserve Geist Mono for machine-produced values: metrics, IDs, endpoints, payloads, code.",
+      "Do introduce a Headline (20px) step when a region needs to outrank its neighbors. This is the sanctioned fix for a flat scroll.",
+      "Do keep exactly one primary action per view; everything else is a ghost button.",
+      "Do pair every animation with a prefers-reduced-motion: reduce alternative, and keep state transitions in the 150-250ms band.",
+      "Do make empty states teach the interface: what this panel will show, and what the user does to fill it."
+    ],
+    "donts": [
+      "Don't use #71717a (Ink Inert) for text at any size. It fails AA at 4.12:1. The 98 existing usages are debt to be repaid, not a pattern to copy.",
+      "Don't add a box-shadow to any element at rest. Flat is the system, not an oversight.",
+      "Don't use border-left or border-right above 1px as a colored accent stripe on cards, callouts, or list items.",
+      "Don't introduce a new hue because a component needed visual variety. A new color requires a new meaning first.",
+      "Don't let a navigation item carry more than two signals. A run pill stacking a status dot, name, target, version, tournament stripe, and a recommendation badge has become a table row wearing a chip's clothes.",
+      "Don't build a black-box AutoML dashboard: never show a metric without a path to the reasoning behind it.",
+      "Don't drift toward no-code business SaaS: no illustration spots, no oversized rounded cards, no encouraging color washes on neutral information.",
+      "Don't render the product as a generic AI-chat wrapper: no sparkle iconography, no gradient text, no background-clip: text, no glassmorphism.",
+      "Don't become an overloaded enterprise admin: if a panel presents six controls at identical weight, it has no hierarchy and the design is not finished.",
+      "Don't use clamp() fluid type. This is product UI at consistent DPI; the rem ladder is fixed on purpose.",
+      "Don't animate anything that does not communicate state. No entrance choreography on a surface the user opened to read."
+    ]
+  }
+}

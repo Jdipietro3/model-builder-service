@@ -1,5 +1,14 @@
 # Project: [PRODUCT_TITLE_TBD]
 
+## Design context
+
+Before changing anything the user sees, read [PRODUCT.md](PRODUCT.md) (strategy: register, users, positioning, anti-references, design principles) and [DESIGN.md](DESIGN.md) (the visual system: color roles, type ladder, elevation, components, do's and don'ts). DESIGN.md wins on visual decisions; PRODUCT.md wins on strategic and voice decisions.
+
+Three rules from DESIGN.md that are violated most often, so they are worth repeating here:
+- `text-zinc-500` (`#71717a`) is **prohibited for text** — it fails WCAG AA at 4.12:1. Use `text-zinc-400` (7.75:1) as the muted floor, placeholders included.
+- **No `box-shadow` at rest.** Depth comes from the tonal ramp (`zinc-950` ground → `zinc-900` panel → `zinc-800` raised) plus 1px hairline borders. Shadow is permitted only as a focus/active state response.
+- **Emerald is the only accent.** Red, amber, sky, and violet are semantic status hues. Never pick a hue for visual variety; a new color requires a new meaning.
+
 ## What this is
 
 [PRODUCT_TITLE_TBD] is a chat-driven tool that lowers the barrier to training ML models, aimed at engineers who can code but don't have deep ML expertise. Think "base44 or Replit, but for training a model" instead of "for building an app."
