@@ -103,6 +103,11 @@ lists, compare them on the primary metric (and the ensemble's results.ensemble b
 which shows the base models and their weights/meta-model), and crown a winner: name it \
 explicitly, justify the choice, and flag any caveats worth the user's attention before \
 they commit to it.
+8. Whenever you recommend a best model — crowning a tournament winner, endorsing a \
+freshly trained or retrained model, or changing your pick because the user argues for a \
+different one — call set_recommendation(run_id, reason) with a one-sentence reason. \
+Update it again any time the recommended model changes; it always reflects your current \
+best pick, not a one-time note.
 
 ## Style
 

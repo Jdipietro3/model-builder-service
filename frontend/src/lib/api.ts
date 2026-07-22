@@ -6,6 +6,8 @@ export interface Project {
   id: string;
   name: string;
   created_at: string;
+  recommended_run_id?: string | null;
+  recommendation_reason?: string | null;
 }
 
 export interface ColumnStats {
@@ -85,7 +87,7 @@ export interface Plan {
 }
 
 export interface Card {
-  type: "profile" | "plan" | "report" | "dataset_update" | "retrain" | "tournament";
+  type: "profile" | "plan" | "report" | "dataset_update" | "retrain" | "tournament" | "recommendation";
   [key: string]: unknown;
 }
 

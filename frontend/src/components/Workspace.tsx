@@ -296,6 +296,8 @@ export default function Workspace({
   onDeploy,
   onPromote,
   onSetStatus,
+  recommendedRunId,
+  recommendationReason,
 }: {
   datasets: Dataset[];
   runs: Run[];
@@ -312,6 +314,8 @@ export default function Workspace({
   onDeploy: (runId: string, name?: string) => Promise<void>;
   onPromote: (deploymentId: string, runId: string) => Promise<void>;
   onSetStatus: (deploymentId: string, status: "active" | "disabled") => Promise<void>;
+  recommendedRunId: string | null;
+  recommendationReason: string | null;
 }) {
   const ordered = runs.slice().reverse(); // newest first
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -441,6 +445,7 @@ export default function Workspace({
               const m = methodologies.find((x) => x.id === r.plan.methodology_id);
               const v = datasets.find((d) => d.id === r.dataset_id)?.version ?? 1;
               const label = m?.display_name ?? (r.tournament_role === "ensemble" ? "Ensemble" : r.plan.methodology_id);
+              const isRecommended = r.id === recommendedRunId;
               return (
                 <button
                   key={r.id}
@@ -449,17 +454,32 @@ export default function Workspace({
                     r.id === selected.id
                       ? "border-zinc-500 bg-zinc-800 text-zinc-100"
                       : "border-zinc-800 text-zinc-400 hover:border-zinc-600"
-                  } ${r.tournament_id ? "border-l-2 border-l-violet-500" : ""}`}
+                  } ${r.tournament_id ? "border-l-2 border-l-violet-500" : ""} ${
+                    isRecommended ? "ring-1 ring-emerald-500/70" : ""
+                  }`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[s] ?? "bg-zinc-500"}`} />
                   {label} → {r.plan.target_column}
                   <span className="text-zinc-500">v{v}</span>
+                  {isRecommended && (
+                    <span className="flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                      ★ Recommended
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
         )}
         <div className="space-y-3">
+          {selected.id === recommendedRunId && recommendationReason && (
+            <div className="rounded-lg border border-emerald-900/60 bg-emerald-950/30 px-3 py-2.5">
+              <div className="mb-1 text-xs font-medium text-emerald-300">
+                ★ Recommended by the assistant
+              </div>
+              <p className="text-xs leading-relaxed text-emerald-200/80">{recommendationReason}</p>
+            </div>
+          )}
           {tournamentPending ? (
             <TournamentCard
               tournamentId={selected.tournament_id!}

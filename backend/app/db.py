@@ -39,6 +39,10 @@ def _ensure_columns(engine) -> None:
             ("tournament_role", "VARCHAR(20)"),
             ("tournament_interpreted", "BOOLEAN NOT NULL DEFAULT 0"),
         ],
+        "projects": [
+            ("recommended_run_id", "VARCHAR(32)"),
+            ("recommendation_reason", "TEXT"),
+        ],
     }
     with engine.connect() as conn:
         for table, columns in additions.items():

@@ -16,6 +16,8 @@ class ProjectOut(BaseModel):
     id: str
     name: str
     created_at: datetime
+    recommended_run_id: str | None = None
+    recommendation_reason: str | None = None
 
     model_config = {"from_attributes": True}
 

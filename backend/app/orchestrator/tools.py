@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from ..ml.plans import diagnose_plan, validate_plan
 from ..ml.profiling import profile_path
 from ..ml.registry.loader import get_spec, list_methodologies
-from ..models import Dataset, Run
+from ..models import Dataset, Project, Run
 from ..retrain import NoNewerDataError, retrain_run
 from ..schemas import DataShape, TaskFamily, TaskType
 
@@ -130,6 +130,11 @@ class GetResultsInput(ToolInput):
 
 class RetrainRunInput(ToolInput):
     run_id: str
+
+
+class SetRecommendationInput(ToolInput):
+    run_id: str
+    reason: str
 
 
 # ---------------------------------------------------------------------------
@@ -489,6 +494,25 @@ def retrain_run_tool(db: Session, project_id: str, args: RetrainRunInput):
         "dataset_version": latest.version,
         "parent_run_id": run.id,
     }
+    return result, card
+
+
+@tool("set_recommendation",
+    "Record which trained run is the recommended model for this project, with a one-sentence reason. "
+    "Call this whenever you recommend a best model or change your recommendation (after a tournament, "
+    "after training/retraining, or when the user gives a reason to switch). Overwrites any prior recommendation.")
+def set_recommendation(db: Session, project_id: str, args: SetRecommendationInput):
+    run = db.get(Run, args.run_id)
+    if not run or run.project_id != project_id:
+        return {"error": "Run not found in this project"}, None
+    if run.status != "completed":
+        return {"error": f"Run is '{run.status}' — only completed runs can be recommended"}, None
+    project = db.get(Project, project_id)
+    project.recommended_run_id = args.run_id
+    project.recommendation_reason = args.reason
+    db.commit()
+    result = {"ok": True, "run_id": args.run_id, "reason": args.reason}
+    card = {"type": "recommendation", "project_id": project_id, "run_id": args.run_id, "reason": args.reason}
     return result, card
 
 

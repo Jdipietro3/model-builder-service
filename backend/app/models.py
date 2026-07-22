@@ -21,6 +21,11 @@ class Project(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
     name: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    # The LLM's current best-model pick for this project, set/updated via the
+    # set_recommendation tool. Not tied to any single run's lifecycle — it's
+    # project-level state that persists across retrains/tournaments.
+    recommended_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    recommendation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Message(Base):

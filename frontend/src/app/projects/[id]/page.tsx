@@ -187,6 +187,7 @@ export default function ProjectPage() {
       try {
         const p = await api.getProject(projectId);
         if (!mountedRef.current) return;
+        setProject(p);
         const newOnes = p.messages.filter(
           (msg) => !msg.hidden && !messageIdsRef.current.has(msg.id),
         );
@@ -390,6 +391,16 @@ export default function ProjectPage() {
               },
             }));
             watchRun(run.id);
+          } else if (e.card.type === "recommendation") {
+            setProject((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    recommended_run_id: e.card.run_id as string,
+                    recommendation_reason: e.card.reason as string,
+                  }
+                : prev,
+            );
           }
         } else if (e.type === "error") {
           text += `${text ? "\n\n" : ""}⚠ ${e.message}`;
@@ -677,6 +688,8 @@ export default function ProjectPage() {
               onDeploy={handleDeploy}
               onPromote={handlePromote}
               onSetStatus={handleSetDeploymentStatus}
+              recommendedRunId={project?.recommended_run_id ?? null}
+              recommendationReason={project?.recommendation_reason ?? null}
             />
           </div>
           <aside className="flex w-95 shrink-0 flex-col border-l border-zinc-800 bg-zinc-950">
