@@ -24,7 +24,7 @@ export default function ProfileCard({
           </span>
           <span className="font-mono text-sm text-zinc-300">{filename}</span>
         </div>
-        <span className="text-xs text-zinc-500">
+        <span className="text-xs text-zinc-400">
           {profile.n_rows.toLocaleString()} rows × {profile.n_cols} columns
         </span>
       </div>
@@ -32,7 +32,7 @@ export default function ProfileCard({
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-zinc-800 text-zinc-500">
+            <tr className="border-b border-zinc-800 text-zinc-400">
               <th className="px-4 py-2 font-medium">Column</th>
               <th className="px-2 py-2 font-medium">Kind</th>
               <th className="px-2 py-2 font-medium">Unique</th>
@@ -47,7 +47,7 @@ export default function ProfileCard({
                   {c.name}
                   {profile.target_candidates.includes(c.name) && (
                     <span
-                      className="ml-1.5 rounded bg-emerald-950 px-1 py-0.5 text-[10px] text-emerald-400"
+                      className="ml-1.5 rounded bg-emerald-950 px-1 py-0.5 text-xs text-emerald-400"
                       title="Candidate target column"
                     >
                       target?
@@ -59,7 +59,7 @@ export default function ProfileCard({
                 <td className="px-2 py-1.5 text-zinc-400">
                   {c.pct_missing > 0 ? `${c.pct_missing}%` : "—"}
                 </td>
-                <td className="max-w-64 truncate px-4 py-1.5 font-mono text-zinc-500">
+                <td className="max-w-64 truncate px-4 py-1.5 font-mono text-zinc-400">
                   {c.top_values?.length
                     ? c.top_values.map((t) => `${t.value} (${t.pct}%)`).join(", ")
                     : c.sample_values.join(", ")}
@@ -73,7 +73,7 @@ export default function ProfileCard({
       {profile.columns.length > 8 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="w-full py-2 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+          className="focus-ring-panel w-full py-2 text-xs text-zinc-400 transition-colors hover:text-zinc-300"
         >
           {expanded ? "Show less" : `Show all ${profile.columns.length} columns`}
         </button>
@@ -82,7 +82,7 @@ export default function ProfileCard({
       {profile.warnings.length > 0 && (
         <div className="border-t border-zinc-800 px-4 py-2.5">
           {profile.warnings.map((w, i) => (
-            <p key={i} className="text-xs text-amber-400/90">
+            <p key={i} className="measure text-xs text-amber-400/90">
               ⚠ {w}
             </p>
           ))}

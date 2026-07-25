@@ -72,7 +72,7 @@ export default function TournamentComparisonCard({
           </span>
           <span className="text-sm text-zinc-300">{contenders.length}-way</span>
         </div>
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="measure mt-1 text-xs text-zinc-400">
           Metrics on the shared holdout split. No hard winner is claimed here — check the chat
           for the assistant&apos;s read.
         </p>
@@ -82,7 +82,7 @@ export default function TournamentComparisonCard({
         <table className="w-full min-w-max text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>
           <thead>
             <tr>
-              <th className="px-2 pb-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
+              <th className="px-2 pb-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-400">
                 Metric
               </th>
               {contenders.map((c) => (
@@ -90,7 +90,7 @@ export default function TournamentComparisonCard({
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-zinc-200">{columnLabel(c)}</span>
                     {c.run.id === bestRunId && (
-                      <span className="rounded bg-emerald-950 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+                      <span className="rounded bg-emerald-950 px-1.5 py-0.5 text-xs font-medium text-emerald-300">
                         best on primary metric
                       </span>
                     )}
@@ -111,7 +111,7 @@ export default function TournamentComparisonCard({
                   <td className="whitespace-nowrap px-2 py-1.5 text-xs text-zinc-400">
                     {METRIC_LABELS[key] ?? key}
                     {isPrimary && (
-                      <span className="ml-1.5 text-[10px] text-emerald-500">optimized</span>
+                      <span className="ml-1.5 text-xs text-emerald-500">optimized</span>
                     )}
                   </td>
                   {contenders.map((c) => {

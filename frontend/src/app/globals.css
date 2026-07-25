@@ -3,6 +3,20 @@
 :root {
   --background: #09090b;
   --foreground: #f4f4f5;
+
+  /* Chart / data-viz palette.
+     These replace the hardcoded #3987e5 / #0ca30c / #e66767 that had grown up
+     as a second, undocumented vocabulary. Every value below maps onto a role
+     already named in DESIGN.md, so charts and UI speak one palette. */
+  --chart-seq: #0ea5e9;        /* Readout Sky ramp base — sequential heatmaps, served distribution */
+  --chart-seq-ink: #f0f9ff;    /* text on a saturated sequential cell */
+  --chart-good: #10b981;       /* Signal Green — improvement */
+  --chart-bad: #f87171;        /* Alarm Red — regression */
+  --chart-neutral: #71717a;    /* Ink Inert — non-text only: reference bars, gridlines */
+  --chart-actual: #d4d4d8;     /* Ink Secondary — observed values */
+  --chart-forecast: #10b981;   /* Signal Green — future forecast */
+  --chart-grid: #27272a;       /* hairline gridlines */
+  --chart-axis: #a1a1aa;       /* Ink Muted — axis labels (readable text, so never Ink Inert) */
 }
 
 @theme inline {
@@ -10,6 +24,22 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* The type ladder from DESIGN.md. Fixed rem, not fluid: this is product UI
+     at consistent DPI. Label and Body remain the workhorses; the steps above
+     exist to let regions outrank each other. */
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.45;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.55;
+  --text-title: 1rem;
+  --text-title--line-height: 1.4;
+  --text-headline: 1.25rem;
+  --text-headline--line-height: 1.3;
+  --text-headline--letter-spacing: -0.01em;
+  --text-display: 1.875rem;
+  --text-display--line-height: 1.2;
+  --text-display--letter-spacing: -0.02em;
 }
 
 body {
@@ -22,4 +52,57 @@ body {
 * {
   scrollbar-width: thin;
   scrollbar-color: #3f3f46 transparent;
+}
+
+/* The standard focus treatment from DESIGN.md: two rings, so the indicator
+   survives on all three surface layers (ground, panel, raised). Applied via
+   focus-visible so pointer users never see it.
+
+   Usage: add `focus-ring` to any interactive element. Prefer this over
+   per-component focus styling so the treatment stays identical everywhere.
+
+   Authored as plain CSS rather than `@utility`: the `@utility` form with a
+   nested `&:focus-visible` did not emit a rule under this Tailwind v4 setup,
+   which left the class inert on every element that carried it. Plain rules are
+   passed through verbatim, and being unlayered they also win over the Tailwind
+   utility layer, so a focus:border-* on the same element cannot suppress the
+   ring. */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--background),
+    0 0 0 4px #059669;
+}
+
+/* Same treatment for elements sitting on a panel rather than the ground. */
+.focus-ring-panel:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px #18181b,
+    0 0 0 4px #059669;
+}
+
+/* Prose measure. DESIGN.md caps sustained reading at 65-75ch; long-form blocks
+   (plan reasoning, caveats, recommendation rationale) were running 87-139
+   characters per line. Apply to any paragraph-length text, never to tables or
+   dense data rows, which are allowed to run wider. */
+.measure {
+  /* 54ch, not 68ch. The `ch` unit is the advance of the "0" glyph, which in
+     Geist is meaningfully wider than the average character in running prose —
+     68ch measured out to 631px, about 90 real characters, well past the cap it
+     was supposed to enforce. 54ch lands around 72. Verify by measuring rendered
+     text, not by trusting the unit. */
+  max-width: 54ch;
+  text-wrap: pretty;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

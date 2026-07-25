@@ -8,9 +8,12 @@ import remarkGfm from "remark-gfm";
 // palette. Raw HTML in the source is ignored by react-markdown (no rehype-raw),
 // so no sanitizer is needed.
 const components: Components = {
-  p: (props) => <p className="mb-3 leading-relaxed last:mb-0" {...props} />,
-  ul: (props) => <ul className="mb-3 list-disc space-y-1 pl-5 last:mb-0" {...props} />,
-  ol: (props) => <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0" {...props} />,
+  // `measure` caps running prose at ~72 characters. It only ever narrows, so it
+  // is inert in the ~380px chat rail and does its work in the wider pre-workspace
+  // layout, where assistant answers are the longest-form text in the product.
+  p: (props) => <p className="measure mb-3 leading-relaxed last:mb-0" {...props} />,
+  ul: (props) => <ul className="measure mb-3 list-disc space-y-1 pl-5 last:mb-0" {...props} />,
+  ol: (props) => <ol className="measure mb-3 list-decimal space-y-1 pl-5 last:mb-0" {...props} />,
   h1: (props) => <h1 className="mb-2 mt-4 text-base font-semibold text-zinc-100 first:mt-0" {...props} />,
   h2: (props) => <h2 className="mb-2 mt-4 text-base font-semibold text-zinc-100 first:mt-0" {...props} />,
   h3: (props) => <h3 className="mb-2 mt-3 text-sm font-semibold text-zinc-100 first:mt-0" {...props} />,
@@ -25,7 +28,9 @@ const components: Components = {
   ),
   code: (props) => (
     <code
-      className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[0.85em] text-emerald-300"
+      // 0.9em, not 0.85em: at the 14px body size the smaller value rendered
+      // 11.9px, under the 12px readable floor.
+      className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[0.9em] text-emerald-300"
       {...props}
     />
   ),
@@ -45,7 +50,13 @@ const components: Components = {
   ),
   td: (props) => <td className="border-b border-zinc-800 px-2 py-1 text-left" {...props} />,
   blockquote: (props) => (
-    <blockquote className="mb-3 border-l-2 border-zinc-700 pl-3 italic text-zinc-400 last:mb-0" {...props} />
+    // 1px, not 2px: DESIGN.md bans side-stripe borders above a hairline. A
+    // blockquote rule is a legitimate typographic convention, but it still has
+    // to be a hairline like every other edge in the system.
+    <blockquote
+      className="measure mb-3 border-l border-zinc-700 pl-3 italic text-zinc-400 last:mb-0"
+      {...props}
+    />
   ),
   strong: (props) => <strong className="font-semibold text-zinc-100" {...props} />,
   hr: (props) => <hr className="my-3 border-zinc-800" {...props} />,

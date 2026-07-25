@@ -66,7 +66,7 @@ export default function PlanCard({
 
   const badge = STATUS_LABELS[status] ?? STATUS_LABELS.pending_approval;
   const selectCls =
-    "w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-200 outline-none focus:border-emerald-600 disabled:cursor-default disabled:border-transparent disabled:appearance-none disabled:px-0";
+    "focus-ring-panel w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-200 focus:border-emerald-600 disabled:cursor-default disabled:border-transparent disabled:appearance-none disabled:px-0";
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
@@ -75,7 +75,7 @@ export default function PlanCard({
           <span className="rounded bg-violet-950 px-2 py-0.5 text-xs font-medium text-violet-300">
             TRAINING PLAN
           </span>
-          <span className="text-xs text-zinc-500">on {datasetFilename}</span>
+          <span className="text-xs text-zinc-400">on {datasetFilename}</span>
         </div>
         <span className={`rounded px-2 py-0.5 text-xs font-medium ${badge.cls}`}>
           {badge.label}
@@ -84,11 +84,11 @@ export default function PlanCard({
 
       <div className="grid grid-cols-2 gap-x-6 gap-y-3 px-4 py-4 sm:grid-cols-4">
         <div>
-          <div className="mb-1 text-xs text-zinc-500">Task</div>
+          <div className="mb-1 text-xs text-zinc-400">Task</div>
           <div className="text-sm text-zinc-200">{plan.task_type.replace(/_/g, " ")}</div>
         </div>
         <div>
-          <div className="mb-1 text-xs text-zinc-500">Target column</div>
+          <div className="mb-1 text-xs text-zinc-400">Target column</div>
           <select
             value={target}
             onChange={(e) => setTarget(e.target.value)}
@@ -103,7 +103,7 @@ export default function PlanCard({
           </select>
         </div>
         <div>
-          <div className="mb-1 text-xs text-zinc-500">Methodology</div>
+          <div className="mb-1 text-xs text-zinc-400">Methodology</div>
           <select
             value={methodologyId}
             onChange={(e) => pickMethodology(e.target.value)}
@@ -118,7 +118,7 @@ export default function PlanCard({
           </select>
         </div>
         <div>
-          <div className="mb-1 text-xs text-zinc-500">Optimize for</div>
+          <div className="mb-1 text-xs text-zinc-400">Optimize for</div>
           <select
             value={metric}
             onChange={(e) => setMetric(e.target.value)}
@@ -134,7 +134,7 @@ export default function PlanCard({
         </div>
         {isForecasting && (
           <div>
-            <div className="mb-1 text-xs text-zinc-500">Time column</div>
+            <div className="mb-1 text-xs text-zinc-400">Time column</div>
             <select
               value={timeColumn}
               onChange={(e) => setTimeColumn(e.target.value)}
@@ -151,7 +151,7 @@ export default function PlanCard({
         )}
         {isForecasting && (
           <div>
-            <div className="mb-1 text-xs text-zinc-500">Horizon (periods to forecast)</div>
+            <div className="mb-1 text-xs text-zinc-400">Horizon (periods to forecast)</div>
             <input
               type="number"
               min={1}
@@ -170,7 +170,7 @@ export default function PlanCard({
       <div className="px-4 pb-3">
         <button
           onClick={() => setShowExclusions(!showExclusions)}
-          className="text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+          className="focus-ring-panel rounded text-xs text-zinc-400 transition-colors hover:text-zinc-300"
         >
           {showExclusions ? "▾" : "▸"} Excluded columns ({excluded.length})
         </button>
@@ -189,7 +189,7 @@ export default function PlanCard({
                         isExcluded ? prev.filter((x) => x !== c.name) : [...prev, c.name],
                       )
                     }
-                    className={`rounded-full border px-2.5 py-0.5 font-mono text-xs transition-colors ${
+                    className={`focus-ring-panel rounded-full border px-2.5 py-0.5 font-mono text-xs transition-colors ${
                       isExcluded
                         ? "border-red-900 bg-red-950/60 text-red-300 line-through"
                         : "border-zinc-700 text-zinc-400"
@@ -199,7 +199,7 @@ export default function PlanCard({
                   </button>
                 );
               })}
-            <p className="mt-1 w-full text-[11px] text-zinc-600">
+            <p className="mt-1 w-full text-xs text-zinc-400">
               Click to toggle. Excluded columns are not used as features.
             </p>
           </div>
@@ -214,10 +214,8 @@ export default function PlanCard({
               return (
                 <div
                   key={i}
-                  className={`rounded-lg border px-3 py-2.5 ${
-                    high
-                      ? "border-red-900/70 bg-red-950/30"
-                      : "border-amber-900/60 bg-amber-950/30"
+                  className={`rounded-md px-3 py-2.5 ${
+                    high ? "bg-red-950/30" : "bg-amber-950/30"
                   }`}
                 >
                   <div
@@ -228,7 +226,7 @@ export default function PlanCard({
                     {high ? "High risk" : "Worth checking"} · {w.category.replace(/_/g, " ")}
                   </div>
                   <p
-                    className={`text-xs leading-relaxed ${
+                    className={`measure text-xs leading-relaxed ${
                       high ? "text-red-200/80" : "text-amber-200/80"
                     }`}
                   >
@@ -239,7 +237,7 @@ export default function PlanCard({
                       {w.columns.map((c) => (
                         <span
                           key={c}
-                          className={`rounded-full border px-2 py-0.5 font-mono text-[11px] ${
+                          className={`rounded-full border px-2 py-0.5 font-mono text-xs ${
                             high
                               ? "border-red-900 text-red-300"
                               : "border-amber-900 text-amber-300"
@@ -259,14 +257,14 @@ export default function PlanCard({
 
       {plan.reasoning && (
         <div className="border-t border-zinc-800 px-4 py-3">
-          <div className="mb-1 text-xs font-medium text-zinc-500">Why this plan</div>
-          <p className="text-sm leading-relaxed text-zinc-400">{plan.reasoning}</p>
+          <div className="mb-1 text-xs font-medium text-zinc-400">Why this plan</div>
+          <p className="measure text-sm leading-relaxed text-zinc-400">{plan.reasoning}</p>
         </div>
       )}
 
       {editable && (
         <div className="flex items-center justify-between border-t border-zinc-800 bg-zinc-900 px-4 py-3">
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-zinc-400">
             {isForecasting
               ? `${plan.validation.n_splits} validation folds (rolling-origin backtest) + holdout window`
               : `${plan.validation.n_splits}-fold cross-validation + 20% holdout`}
@@ -281,7 +279,7 @@ export default function PlanCard({
                 ...(isForecasting ? { time_column: timeColumn || null, horizon } : {}),
               })
             }
-            className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+            className="focus-ring-panel rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
           >
             Approve &amp; train
           </button>

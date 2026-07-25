@@ -93,7 +93,7 @@ function CardView({ card, ctx }: { card: Card; ctx: CardContext }) {
     return (
       <div className="space-y-2">
         {diff && (
-          <p className="text-xs text-zinc-500">
+          <p className="measure text-xs text-zinc-400">
             Dataset updated to v{card.version as number}: {diff.rows_before.toLocaleString()} →{" "}
             {diff.rows_after.toLocaleString()} rows ({diff.rows_added >= 0 ? "+" : ""}
             {diff.rows_added})
@@ -106,7 +106,7 @@ function CardView({ card, ctx }: { card: Card; ctx: CardContext }) {
 
   if (card.type === "retrain") {
     return (
-      <p className="text-sm text-zinc-400">
+      <p className="measure text-sm text-zinc-400">
         Retraining on updated data — see workspace for progress.
       </p>
     );
@@ -182,7 +182,7 @@ export function StreamingMessage({
           <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-emerald-500 align-text-bottom" />
         </div>
       ) : (
-        <div className="flex items-center gap-2 text-sm text-zinc-500">
+        <div className="flex items-center gap-2 text-sm text-zinc-400">
           <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
           Thinking…
         </div>

@@ -157,7 +157,7 @@ The status vocabulary. Each hue owns one meaning and is used at a wash backgroun
 
 **The One Signal Rule.** Signal Green is the only non-status hue in the system and must occupy under 10% of any screen. If two things on screen are green, at most one of them is an action; the other is state. Three green things means the screen has lost its hierarchy.
 
-**The Inert Floor Rule.** `#71717a` (Ink Inert) is **prohibited for text of any size**. It measures 4.12:1 against the application ground and fails WCAG AA. `#a1a1aa` (Ink Muted) is the floor for every readable string, including placeholders, and measures 7.75:1. This rule applies to the 98 existing call sites; they are debt, not precedent.
+**The Inert Floor Rule.** `#71717a` (Ink Inert) is **prohibited for text of any size**. Computed from the token it measures 4.12:1 against the application ground; measured in the rendered page it is worse, **3.85:1**, because Tailwind v4's OKLCH pipeline resolves it nearer `rgb(109,109,109)`. Either way it fails WCAG AA. `#a1a1aa` (Ink Muted) is the floor for every readable string, including placeholders, and measures 7.75:1. This rule applies to the 98 existing call sites; they are debt, not precedent.
 
 **The Semantic Hue Rule.** Red, amber, sky, and violet carry meaning only. A hue may never be chosen because a component needed visual variety. If a new feature wants a new color, it wants a new meaning, and it must justify that meaning before it gets a hue.
 
@@ -234,6 +234,9 @@ The single exception is **state**. Shadow and glow are permitted only as a respo
 ### Navigation
 - **Style:** the run list is the primary navigation of this product. Items are Label type on Ink Panel, hover to Ink Raised, and the active item takes Ink Primary text with a Signal Green indicator.
 - **Density:** navigation items carry at most two signals: their name and one state. A third signal means the item is doing the job of a table row and should become one.
+
+### Confirmation Dialog
+The one sanctioned modal. Product register treats a modal as a first-thought failure, and that stands: anything reversible resolves inline or through progressive disclosure. The exception is an action that is irreversible **and** affects people who are not present — promoting a deployment swaps the model answering live prediction traffic. Built on native `<dialog>` + `showModal()` for the top layer, focus trap, Esc-dismiss, and background inerting. Zinc-900 panel, 1px zinc-700 hairline, `zinc-950/70` backdrop, no shadow. One primary (emerald) and one ghost (cancel); cancel is always reachable by Esc and by backdrop click.
 
 ### The Status Dot
 The system's signature primitive. A `9999px` dot, 6–8px, expressing run and deployment state in the smallest possible footprint: Signal Green for completed or live, Readout Sky with a pulse for in-flight, Alarm Red for failed, Ink Inert for idle. It is the one place Ink Inert is correct, because it is not text. The dot always sits left of the label it describes and never carries a border.

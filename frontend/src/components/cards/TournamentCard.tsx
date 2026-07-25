@@ -61,26 +61,26 @@ export default function TournamentCard({
           <span className="rounded bg-violet-950 px-2 py-0.5 text-xs font-medium text-violet-300">
             TOURNAMENT
           </span>
-          <span className="text-xs text-zinc-500">on {datasetFilename}</span>
+          <span className="text-xs text-zinc-400">on {datasetFilename}</span>
         </div>
       </div>
 
       {shared && (
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 px-4 py-4 sm:grid-cols-4">
           <div>
-            <div className="mb-1 text-xs text-zinc-500">Task</div>
+            <div className="mb-1 text-xs text-zinc-400">Task</div>
             <div className="text-sm text-zinc-200">{shared.task_type.replace(/_/g, " ")}</div>
           </div>
           <div>
-            <div className="mb-1 text-xs text-zinc-500">Target column</div>
+            <div className="mb-1 text-xs text-zinc-400">Target column</div>
             <div className="text-sm text-zinc-200">{shared.target_column}</div>
           </div>
           <div>
-            <div className="mb-1 text-xs text-zinc-500">Optimize for</div>
+            <div className="mb-1 text-xs text-zinc-400">Optimize for</div>
             <div className="text-sm text-zinc-200">{shared.primary_metric}</div>
           </div>
           <div>
-            <div className="mb-1 text-xs text-zinc-500">Candidates</div>
+            <div className="mb-1 text-xs text-zinc-400">Candidates</div>
             <div className="text-sm text-zinc-200">{candidates.length}</div>
           </div>
         </div>
@@ -95,7 +95,7 @@ export default function TournamentCard({
           return (
             <div
               key={c.run_id}
-              className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2"
+              className="flex items-center justify-between rounded-lg bg-zinc-800/40 px-3 py-2"
             >
               <div className="flex items-center gap-2">
                 <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
@@ -111,7 +111,7 @@ export default function TournamentCard({
         })}
 
         {ensemble !== "none" && (
-          <div className="flex items-center justify-between rounded-lg border border-dashed border-violet-900/60 bg-violet-950/20 px-3 py-2">
+          <div className="flex items-center justify-between rounded-lg bg-violet-950/20 px-3 py-2">
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
               <span className="text-sm text-zinc-300">
@@ -131,20 +131,20 @@ export default function TournamentCard({
 
       {reasoning && (
         <div className="border-t border-zinc-800 px-4 py-3">
-          <div className="mb-1 text-xs font-medium text-zinc-500">Why this tournament</div>
-          <p className="text-sm leading-relaxed text-zinc-400">{reasoning}</p>
+          <div className="mb-1 text-xs font-medium text-zinc-400">Why this tournament</div>
+          <p className="measure text-sm leading-relaxed text-zinc-400">{reasoning}</p>
         </div>
       )}
 
       {allPending && (
         <div className="flex items-center justify-between border-t border-zinc-800 bg-zinc-900 px-4 py-3">
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-zinc-400">
             {candidates.length}-way champion/challenger
             {ensemble !== "none" ? " + auto-ensemble" : ""}
           </span>
           <button
             onClick={() => onApproveTournament(tournamentId)}
-            className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+            className="focus-ring-panel rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
           >
             Approve &amp; train all
           </button>

@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { api, Deployment, Dist, PredictResponse, Run, ServingStats } from "@/lib/api";
 import { LOWER_BETTER, METRIC_LABELS, fmt } from "./ReportCard";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
-// Same sequential/paired hues used elsewhere (ReportCard/PredictionCard).
-const SERVED_HUE = "#3987e5"; // blue — served (live) distribution
-const TRAINING_HUE = "#71717a"; // zinc — training-time distribution
-// Same improvement/regression hues used by ComparisonCard's metric deltas.
-const GOOD = "#0ca30c";
-const BAD = "#e66767";
+// Sourced from the shared chart tokens in globals.css — one source of truth,
+// same hues ReportCard/PredictionCard/ComparisonCard draw from.
+const SERVED_HUE = "var(--chart-seq)"; // served (live) distribution
+const TRAINING_HUE = "var(--chart-neutral)"; // training-time distribution
+const GOOD = "var(--chart-good)";
+const BAD = "var(--chart-bad)";
 
 function extractErrorDetail(e: unknown): string {
   const msg = String(e instanceof Error ? e.message : e);
@@ -43,7 +44,7 @@ function CopyButton({ text }: { text: string }) {
           // Clipboard API unavailable — silently no-op.
         }
       }}
-      className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400"
+      className="focus-ring-panel rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400"
     >
       {copied ? "Copied" : "Copy"}
     </button>
@@ -60,11 +61,11 @@ function DistComparison({ served, training }: { served: Dist | null; training: D
       <div className="grid grid-cols-3 gap-2">
         {(["mean", "min", "max"] as const).map((k) => (
           <div key={k} className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
-            <div className="text-xs text-zinc-500">{k}</div>
+            <div className="text-xs text-zinc-400">{k}</div>
             <div className="text-lg font-semibold text-zinc-100">
-              {s ? fmt(s[k]) : <span className="text-zinc-600">—</span>}
+              {s ? fmt(s[k]) : <span className="text-zinc-400">—</span>}
             </div>
-            <div className="mt-1 text-xs text-zinc-500">training {fmt(training[k])}</div>
+            <div className="mt-1 text-xs text-zinc-400">training {fmt(training[k])}</div>
           </div>
         ))}
       </div>
@@ -90,7 +91,7 @@ function DistComparison({ served, training }: { served: Dist | null; training: D
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-right text-[10px] text-zinc-500">served</span>
+                <span className="w-14 shrink-0 text-right text-xs text-zinc-400">served</span>
                 <div className="flex flex-1 items-center gap-2">
                   <div
                     className="h-3 rounded-r"
@@ -100,13 +101,13 @@ function DistComparison({ served, training }: { served: Dist | null; training: D
                       background: SERVED_HUE,
                     }}
                   />
-                  <span className="text-[11px] text-zinc-500">
+                  <span className="text-xs text-zinc-400">
                     {servedPct !== null ? `${(servedPct * 100).toFixed(1)}%` : "no data yet"}
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-right text-[10px] text-zinc-500">training</span>
+                <span className="w-14 shrink-0 text-right text-xs text-zinc-400">training</span>
                 <div className="flex flex-1 items-center gap-2">
                   <div
                     className="h-3 rounded-r"
@@ -116,7 +117,7 @@ function DistComparison({ served, training }: { served: Dist | null; training: D
                       background: TRAINING_HUE,
                     }}
                   />
-                  <span className="text-[11px] text-zinc-500">{(trainPct * 100).toFixed(1)}%</span>
+                  <span className="text-xs text-zinc-400">{(trainPct * 100).toFixed(1)}%</span>
                 </div>
               </div>
             </div>
@@ -150,50 +151,52 @@ function StatsPanel({ deploymentId }: { deploymentId: string }) {
     return <p className="text-xs text-red-400">Could not load serving stats: {error}</p>;
   }
   if (!stats) {
-    return <p className="text-xs text-zinc-500">Loading serving stats…</p>;
+    return <p className="text-xs text-zinc-400">Loading serving stats…</p>;
   }
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
-          <div className="text-xs text-zinc-500">Requests</div>
+          <div className="text-xs text-zinc-400">Requests</div>
           <div className="text-lg font-semibold text-zinc-100">{stats.n_requests.toLocaleString()}</div>
         </div>
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
-          <div className="text-xs text-zinc-500">Rows scored</div>
+          <div className="text-xs text-zinc-400">Rows scored</div>
           <div className="text-lg font-semibold text-zinc-100">{stats.n_rows.toLocaleString()}</div>
         </div>
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
-          <div className="text-xs text-zinc-500">Avg latency</div>
+          <div className="text-xs text-zinc-400">Avg latency</div>
           <div className="text-lg font-semibold text-zinc-100">{fmt(stats.avg_latency_ms)} ms</div>
         </div>
       </div>
 
       {stats.n_requests === 0 ? (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-zinc-400">
           No prediction requests yet — run the live tester below to populate serving stats.
         </p>
       ) : (
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-400">
               Served vs. training distribution
             </h4>
-            <span className="text-[10px] text-zinc-600">
+            <span className="text-xs text-zinc-400">
               basic drift indicator (population comparison, not a statistical test)
             </span>
           </div>
           <DistComparison served={stats.served_distribution} training={stats.training_distribution} />
         </div>
       )}
-      {stats.drift_note && <p className="text-xs text-zinc-500">{stats.drift_note}</p>}
+      {stats.drift_note && <p className="measure text-xs text-zinc-400">{stats.drift_note}</p>}
     </div>
   );
 }
 
-/** Lets the user pick a completed, contract-compatible run and promote it to
- * serve this deployment — closes the retrain→redeploy loop from the card. */
+/** Lets the user point this deployment at a DIFFERENT completed run than the
+ * one they're currently viewing — a distinct, secondary action from the
+ * workspace's one-click "promote this run" button. Collapsed by default so
+ * it never competes with the card's primary content. */
 function PromoteSection({
   currentRun,
   candidates,
@@ -206,6 +209,7 @@ function PromoteSection({
   const [selectedRunId, setSelectedRunId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const candidate = candidates.find((r) => r.id === selectedRunId) ?? null;
   const m = candidate?.results?.primary_metric;
@@ -216,12 +220,17 @@ function PromoteSection({
     newValue !== undefined && currentValue !== undefined ? newValue - currentValue : null;
   const improved = delta === null ? null : lowerBetter ? delta < 0 : delta > 0;
 
-  async function handlePromote() {
+  const currentLabel =
+    currentRun?.results?.methodology.display_name ?? currentRun?.plan?.methodology_id ?? "the currently serving run";
+  const candidateLabel = candidate?.results?.methodology.display_name ?? "the selected run";
+
+  async function handleConfirm() {
     if (!selectedRunId) return;
     setBusy(true);
     setError(null);
     try {
       await onPromote(selectedRunId);
+      setConfirmOpen(false);
     } catch (e) {
       setError(extractErrorDetail(e));
     } finally {
@@ -230,48 +239,84 @@ function PromoteSection({
   }
 
   return (
-    <div>
-      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-        Promote a newer run
-      </h4>
-      <div className="space-y-2.5">
-        <select
-          value={selectedRunId}
-          onChange={(e) => setSelectedRunId(e.target.value)}
-          className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-300 outline-none focus:border-emerald-600"
-        >
-          <option value="">Select a completed run…</option>
-          {candidates.map((r) => {
-            const rm = r.results!.primary_metric;
-            return (
-              <option key={r.id} value={r.id}>
-                {r.results!.methodology.display_name} · {METRIC_LABELS[rm] ?? rm}{" "}
-                {fmt(r.results!.holdout.metrics[rm])} · {new Date(r.created_at).toLocaleDateString()}
-              </option>
-            );
-          })}
-        </select>
+    <div className="border-t border-zinc-800 pt-4">
+      <details className="group">
+        <summary className="focus-ring-panel flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg py-1 text-xs font-medium uppercase tracking-wide text-zinc-400 transition-colors hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
+          <span>Switch serving model</span>
+          <span aria-hidden className="text-zinc-400 transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </summary>
+        <div className="space-y-2.5 pt-3">
+          <p className="measure text-xs text-zinc-400">
+            Point this deployment at a different completed run — not the one you&rsquo;re currently
+            viewing. To serve the run you&rsquo;re looking at now, use the promote button on that run
+            instead.
+          </p>
+          <select
+            value={selectedRunId}
+            onChange={(e) => setSelectedRunId(e.target.value)}
+            className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-300 focus:border-emerald-600"
+          >
+            <option value="">Select a completed run…</option>
+            {candidates.map((r) => {
+              const rm = r.results!.primary_metric;
+              return (
+                <option key={r.id} value={r.id}>
+                  {r.results!.methodology.display_name} · {METRIC_LABELS[rm] ?? rm}{" "}
+                  {fmt(r.results!.holdout.metrics[rm])} · {new Date(r.created_at).toLocaleDateString()}
+                </option>
+              );
+            })}
+          </select>
 
-        {m && currentValue !== undefined && newValue !== undefined && (
-          <div className="text-xs" style={{ color: improved ? GOOD : BAD }}>
-            {METRIC_LABELS[m] ?? m}: {fmt(currentValue)} → {fmt(newValue)} {improved ? "▲" : "▼"}
+          {m && currentValue !== undefined && newValue !== undefined && (
+            <div className="text-xs" style={{ color: improved ? GOOD : BAD }}>
+              {METRIC_LABELS[m] ?? m}: {fmt(currentValue)} → {fmt(newValue)} {improved ? "▲" : "▼"}
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={() => setConfirmOpen(true)}
+            disabled={!selectedRunId || busy}
+            className="focus-ring-panel rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400 disabled:opacity-40"
+          >
+            {busy ? "Switching…" : "Switch"}
+          </button>
+        </div>
+      </details>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Switch serving model"
+        body={
+          <div className="space-y-2">
+            <p>
+              <span className="text-zinc-100">{currentLabel}</span> is currently serving this
+              endpoint. Confirming will switch to{" "}
+              <span className="text-zinc-100">{candidateLabel}</span>. Callers of the endpoint will
+              immediately receive predictions from the new model.
+            </p>
+            {m && currentValue !== undefined && newValue !== undefined && (
+              <p style={{ color: improved ? GOOD : BAD }}>
+                {METRIC_LABELS[m] ?? m}: {fmt(currentValue)} → {fmt(newValue)} {improved ? "▲" : "▼"}
+              </p>
+            )}
           </div>
-        )}
-
-        {error && (
-          <div className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-xs text-red-300">
-            {error}
-          </div>
-        )}
-
-        <button
-          onClick={handlePromote}
-          disabled={!selectedRunId || busy}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
-        >
-          {busy ? "Promoting…" : "Promote"}
-        </button>
-      </div>
+        }
+        confirmLabel="Switch"
+        busy={busy}
+        onConfirm={handleConfirm}
+        onCancel={() => {
+          if (!busy) setConfirmOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -316,18 +361,18 @@ function LiveTester({
         onChange={(e) => setText(e.target.value)}
         rows={8}
         spellCheck={false}
-        className="w-full resize-y rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-300 outline-none focus:border-emerald-600"
+        className="focus-ring w-full resize-y rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-600"
       />
       <div className="flex items-center justify-between">
         <button
           onClick={run}
           disabled={busy || !active}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+          className="focus-ring-panel rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-emerald-700 hover:bg-zinc-800 hover:text-emerald-300 disabled:opacity-40"
         >
           {busy ? "Running…" : "Run prediction"}
         </button>
         {!active && (
-          <span className="text-xs text-zinc-500">Deployment is stopped — enable it to run predictions.</span>
+          <span className="text-xs text-zinc-400">Deployment is stopped — enable it to run predictions.</span>
         )}
       </div>
       {error && (
@@ -337,7 +382,7 @@ function LiveTester({
       )}
       {result && (
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
-          <h4 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          <h4 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
             Response
           </h4>
           <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs text-zinc-300">
@@ -367,6 +412,17 @@ export default function DeploymentCard({
   const isActive = deployment.status === "active";
   const [statsKey, setStatsKey] = useState(0);
 
+  // The stored `deployment.name` is a snapshot from whenever this deployment
+  // was first created — promotion never updates it, so it can actively
+  // misstate what's currently serving. The currently-serving run's own
+  // methodology is the ground truth for identity; fall back only when that
+  // run (or its results) isn't available to us.
+  const servingLabel =
+    currentRun?.results?.methodology.display_name ??
+    currentRun?.plan?.methodology_id ??
+    deployment.name;
+  const showStoredName = deployment.name && deployment.name !== servingLabel;
+
   async function toggleStatus() {
     setToggling(true);
     try {
@@ -381,30 +437,35 @@ export default function DeploymentCard({
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="rounded bg-sky-950 px-2 py-0.5 text-xs font-medium text-sky-300">
-            DEPLOYMENT
-          </span>
-          <span className="text-sm text-zinc-200">{deployment.name}</span>
-          <span
-            className={`rounded px-2 py-0.5 text-xs font-medium ${
-              isActive ? "bg-emerald-950 text-emerald-300" : "bg-zinc-800 text-zinc-400"
-            }`}
-          >
-            {isActive ? "active" : "disabled"}
-          </span>
-          <span className="text-xs text-zinc-500">v{deployment.version}</span>
-          {isActive && (
-            <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-              LIVE
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded bg-sky-950 px-2 py-0.5 text-xs font-medium text-sky-300">
+              DEPLOYMENT
             </span>
+            <span className="text-sm font-medium text-zinc-100">{servingLabel}</span>
+            <span
+              className={`rounded px-2 py-0.5 text-xs font-medium ${
+                isActive ? "bg-emerald-950 text-emerald-300" : "bg-zinc-800 text-zinc-400"
+              }`}
+            >
+              {isActive ? "active" : "stopped"}
+            </span>
+            <span className="text-xs text-zinc-400">v{deployment.version}</span>
+            {isActive && (
+              <span className="flex items-center gap-1 text-xs font-medium text-emerald-400">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                LIVE
+              </span>
+            )}
+          </div>
+          {showStoredName && (
+            <span className="text-xs text-zinc-400">deployment name: {deployment.name}</span>
           )}
         </div>
         <button
           onClick={toggleStatus}
           disabled={toggling}
-          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${
+          className={`focus-ring-panel rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${
             isActive
               ? "border-zinc-700 text-zinc-300 hover:border-red-600 hover:text-red-400"
               : "border-zinc-700 text-zinc-300 hover:border-emerald-600 hover:text-emerald-400"
@@ -417,7 +478,7 @@ export default function DeploymentCard({
       <div className="space-y-5 px-4 py-4">
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Endpoint</h4>
+            <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Endpoint</h4>
             <CopyButton text={curlFor(contract.endpoint, contract.example_record)} />
           </div>
           <div className="space-y-1.5">
@@ -431,13 +492,13 @@ export default function DeploymentCard({
         </div>
 
         <div>
-          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
             Input contract
           </h4>
-          <div className="mb-2 overflow-x-auto rounded-lg border border-zinc-800">
+          <div className="mb-2 overflow-x-auto rounded-lg bg-zinc-950/40">
             <table className="w-full text-left text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
               <thead>
-                <tr className="border-b border-zinc-800 text-zinc-500">
+                <tr className="border-b border-zinc-800 text-zinc-400">
                   <th className="px-3 py-2 font-normal">Column</th>
                   <th className="px-3 py-2 font-normal">Type</th>
                   <th className="px-3 py-2 font-normal">Example</th>
@@ -447,14 +508,14 @@ export default function DeploymentCard({
                 {contract.feature_columns.map((f) => (
                   <tr key={f.name} className="border-b border-zinc-800/50 last:border-0">
                     <td className="px-3 py-1.5 font-mono text-zinc-300">{f.name}</td>
-                    <td className="px-3 py-1.5 font-mono text-zinc-500">{f.dtype}</td>
+                    <td className="px-3 py-1.5 font-mono text-zinc-400">{f.dtype}</td>
                     <td className="px-3 py-1.5 font-mono text-zinc-400">{String(f.example)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="mb-1 text-xs text-zinc-500">
+          <p className="measure mb-1 text-xs text-zinc-400">
             Target <span className="font-mono text-zinc-400">{contract.target_column}</span> ·{" "}
             {contract.task_type.replace(/_/g, " ")}
           </p>
@@ -464,7 +525,7 @@ export default function DeploymentCard({
         </div>
 
         <div>
-          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
             Live tester
           </h4>
           <LiveTester
@@ -475,7 +536,7 @@ export default function DeploymentCard({
         </div>
 
         <div>
-          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
             Serving stats
           </h4>
           <StatsPanel key={`${deployment.version}-${statsKey}`} deploymentId={deployment.id} />

@@ -3,8 +3,13 @@
 import { Results } from "@/lib/api";
 import { LOWER_BETTER, METRIC_LABELS, fmt } from "./ReportCard";
 
-const GOOD = "#0ca30c";
-const BAD = "#e66767";
+// Sourced from the shared chart palette in globals.css so there is one
+// vocabulary for "improved / regressed / unchanged" across every chart.
+const GOOD = "var(--chart-good)";
+const BAD = "var(--chart-bad)";
+// --chart-neutral (Ink Inert) is non-text only per DESIGN.md; the zero-delta
+// case below renders text, so it uses the readable axis/muted tone instead.
+const NEUTRAL_TEXT = "var(--chart-axis)";
 
 function ComparisonMetricTile({
   name,
@@ -23,26 +28,26 @@ function ComparisonMetricTile({
   const deltaSign = delta > 0 ? "+" : "";
   return (
     <div
-      className={`rounded-lg border px-3 py-2.5 ${
-        primary ? "border-zinc-600 bg-zinc-800/60" : "border-zinc-800 bg-zinc-900/40"
-      }`}
+      // Background shift, not a nested border: these tiles sit inside an
+      // already-bordered card, and a box inside a box is a nested card.
+      className={`rounded-lg px-3 py-2.5 ${primary ? "bg-zinc-800/80" : "bg-zinc-950/40"}`}
     >
-      <div className="text-xs text-zinc-500">
+      <div className="text-xs text-zinc-400">
         {METRIC_LABELS[name] ?? name}
-        {primary && <span className="ml-1.5 text-[10px] text-emerald-500">optimized</span>}
+        {primary && <span className="ml-1.5 text-xs text-emerald-500">optimized</span>}
       </div>
       <div
         className={`flex items-baseline gap-1.5 font-semibold text-zinc-100 ${
           primary ? "text-lg" : "text-sm"
         }`}
       >
-        <span className="text-zinc-500 line-through decoration-zinc-600">{fmt(oldValue)}</span>
-        <span className="text-zinc-600">→</span>
+        <span className="text-zinc-400 line-through decoration-zinc-600">{fmt(oldValue)}</span>
+        <span className="text-zinc-400">→</span>
         <span>{fmt(newValue)}</span>
       </div>
       <div
         className="mt-1 text-xs"
-        style={{ color: delta === 0 ? "#71717a" : improved ? GOOD : BAD }}
+        style={{ color: delta === 0 ? NEUTRAL_TEXT : improved ? GOOD : BAD }}
       >
         {delta === 0
           ? "no change"
@@ -83,7 +88,7 @@ export default function ComparisonCard({
           </span>
           <span className="text-sm text-zinc-300">Retrained on updated data</span>
         </div>
-        <div className="mt-0.5 text-xs text-zinc-500">
+        <div className="mt-0.5 text-xs text-zinc-400">
           vs previous run
           {oldDatasetVersion && newDatasetVersion
             ? ` (v${oldDatasetVersion} → v${newDatasetVersion})`
@@ -103,7 +108,7 @@ export default function ComparisonCard({
             />
           ))}
         </div>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-zinc-400">
           n_train {oldResults.n_train.toLocaleString()} → {newResults.n_train.toLocaleString()}
           {isForecasting && newResults.freq ? ` · freq ${newResults.freq}` : ""}
           {isForecasting && newResults.horizon ? ` · horizon ${newResults.horizon}` : ""}

@@ -32,7 +32,7 @@ export default function TrainingCard({
           <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
           {progress?.message ?? (status === "queued" ? "Waiting for a worker" : "Training")}
         </span>
-        <span className="text-xs text-zinc-500" style={{ fontVariantNumeric: "tabular-nums" }}>
+        <span className="text-xs text-zinc-400" style={{ fontVariantNumeric: "tabular-nums" }}>
           {pct}%
         </span>
       </div>
