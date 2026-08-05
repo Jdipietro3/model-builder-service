@@ -96,6 +96,23 @@ body {
   text-wrap: pretty;
 }
 
+/* State-arrival fade, used when a panel replaces a loading/empty state with
+   real content (error banner, project list, empty state). Not decorative
+   entrance choreography — it only plays when the underlying state changes. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-in {
+  animation: fade-in 200ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
