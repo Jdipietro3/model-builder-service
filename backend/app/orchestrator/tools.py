@@ -1,9 +1,10 @@
 """Tool definitions and dispatch for the orchestrator.
 
 Each tool maps to deterministic code in app.ml. Tool inputs are pydantic models:
-the Anthropic input_schema is generated from the model, and incoming tool_input
-is validated against it before the handler runs (validation errors go back to
-the LLM as the tool_result so it can self-correct).
+the tool schema is generated from the model (per-provider dialect via
+ToolSpec.to_anthropic / to_openai), and incoming tool_input is validated against
+it before the handler runs (validation errors go back to the LLM as the
+tool_result so it can self-correct).
 
 The dispatcher returns (result_json, card): result_json goes back to the LLM as
 the tool_result; card, when present, is a structured payload streamed to the UI.
@@ -157,11 +158,25 @@ class ToolSpec:
             "input_schema": _clean_schema(self.input_model.model_json_schema()),
         }
 
+    def to_openai(self) -> dict[str, Any]:
+        """Same schema in OpenAI function-calling shape (DeepSeek, vLLM, Ollama...)."""
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": _clean_schema(self.input_model.model_json_schema()),
+            },
+        }
+
 
 def _clean_schema(schema: dict) -> dict:
-    """Trim pydantic's JSON schema down to what Anthropic tool schemas expect."""
-    # Nested models would emit $defs/$ref, which Anthropic handles poorly.
-    # Keep tool inputs flat.
+    """Trim pydantic's JSON schema down to what LLM tool schemas expect.
+
+    Mutates and returns its argument; callers pass a fresh model_json_schema().
+    """
+    # Nested models would emit $defs/$ref, which Anthropic handles poorly and
+    # smaller open models handle worse. Keep tool inputs flat.
     assert "$defs" not in schema, f"nested models not supported in tool inputs: {schema}"
     schema.pop("title", None)
     for prop in schema.get("properties", {}).values():
@@ -518,7 +533,9 @@ def set_recommendation(db: Session, project_id: str, args: SetRecommendationInpu
 
 # ---------------------------------------------------------------------------
 
-TOOLS: list[dict[str, Any]] = [spec.to_anthropic() for spec in _REGISTRY.values()]
+# Providers serialize these per dialect (to_anthropic / to_openai), so the
+# specs are exported rather than one pre-rendered schema list.
+TOOL_SPECS: list[ToolSpec] = list(_REGISTRY.values())
 
 
 def dispatch(db: Session, project_id: str, name: str, tool_input: dict) -> tuple[str, dict | None]:
