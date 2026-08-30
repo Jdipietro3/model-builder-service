@@ -138,13 +138,24 @@ export function ProjectProvider({
   const selectedRun =
     orderedRuns.find((r) => r.id === selectedRunId) ?? orderedRuns[0];
 
-  // Default the selection to the newest run once runs exist, and re-point it if
-  // the selected run disappears. Mirrors Workspace's old local effect.
+  // Follow the newest run whenever one APPEARS, including a freshly proposed
+  // plan or tournament, and re-point if the selected run disappears.
+  //
+  // The "grew" half is load-bearing and easy to lose: when the assistant
+  // proposes a tournament it appends new runs while the previously selected one
+  // still exists, so a guard that only re-points an *invalid* selection leaves
+  // the workspace showing the old plan while the chat talks about a new one.
+  // The user then has to discover the model dropdown to catch up.
+  const runCountRef = useRef(0);
   useEffect(() => {
-    if (orderedRuns.length === 0) return;
-    if (!selectedRunId || !orderedRuns.some((r) => r.id === selectedRunId)) {
-      setSelectedRunId(orderedRuns[0].id);
+    if (orderedRuns.length === 0) {
+      runCountRef.current = 0;
+      return;
     }
+    const grew = orderedRuns.length > runCountRef.current;
+    runCountRef.current = orderedRuns.length;
+    const stale = !selectedRunId || !orderedRuns.some((r) => r.id === selectedRunId);
+    if (grew || stale) setSelectedRunId(orderedRuns[0].id);
   }, [orderedRuns, selectedRunId]);
 
   useEffect(() => {
