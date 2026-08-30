@@ -93,7 +93,15 @@ def _module_available(module_name: str) -> bool:
         try:
             importlib.import_module(module_name)
             _module_available_cache[module_name] = True
-        except ImportError:
+        except Exception:
+            # Deliberately broad. A library can be installed yet unusable, and
+            # it does not always fail as ImportError: xgboost raises
+            # XGBoostError (a ValueError) when it cannot load xgboost.dll, which
+            # is what happens on Windows machines with Smart App Control
+            # enabled ("[WinError 4551] An Application Control policy has
+            # blocked this file"). Catching only ImportError let that escape
+            # and took the whole registry down at import time, rather than
+            # swapping in the sklearn fallback the spec already declares.
             _module_available_cache[module_name] = False
     return _module_available_cache[module_name]
 
