@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, ChatMessage, Dataset, Methodology, Plan, Profile, Results } from "@/lib/api";
-import { RunState } from "@/app/projects/[id]/page";
+import { RunState } from "@/lib/project-context";
 import Markdown from "./Markdown";
 import ProfileCard from "./cards/ProfileCard";
 import PlanCard from "./cards/PlanCard";

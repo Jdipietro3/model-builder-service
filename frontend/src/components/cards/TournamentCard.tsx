@@ -1,7 +1,7 @@
 "use client";
 
 import { Methodology, Plan } from "@/lib/api";
-import { RunState } from "@/app/projects/[id]/page";
+import { RunState } from "@/lib/project-context";
 
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   pending_approval: { label: "Awaiting approval", cls: "bg-amber-950 text-amber-300" },
