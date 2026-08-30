@@ -38,7 +38,7 @@ export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
   return (
     <nav
       aria-label="Projects"
-      className="flex w-64 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950"
+      className="flex w-72 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950"
     >
       {view === "project" && nav ? (
         <>
