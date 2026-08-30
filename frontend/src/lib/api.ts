@@ -1,5 +1,9 @@
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+/** The backend origin, exported so the Deploy tab can show a copyable curl
+ *  against the real host rather than hardcoding localhost. */
+export const API_BASE = API;
+
 // ---------- Types (mirror backend schemas) ----------
 
 export interface Project {

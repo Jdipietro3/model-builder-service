@@ -10,8 +10,11 @@ node_modules/
 .next/
 out/
 
-# App data (uploads, artifacts, sqlite db)
-data/
+# App data (uploads, artifacts, sqlite db). Anchored with a leading slash so it
+# matches only the data dir at the repo root (config.py: REPO_ROOT / "data").
+# Bare `data/` matches a directory of that name at ANY depth, which silently
+# swallowed the frontend route segment at app/projects/[id]/data/.
+/data/
 
 # Env / secrets
 .env
