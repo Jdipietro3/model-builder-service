@@ -21,4 +21,15 @@ DATABASE_URL = f"sqlite:///{DB_PATH}"
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5")
 
+# Orchestrator LLM. "anthropic" uses the native SDK (keeps explicit prompt-cache
+# breakpoints); "openai" uses the OpenAI-compatible /v1/chat/completions shape,
+# which covers DeepSeek, Ollama, vLLM, LM Studio, Together and Groq via LLM_BASE_URL.
+# The ANTHROPIC_* fallbacks keep an existing .env working with no edits.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "anthropic")
+LLM_MODEL = os.getenv("LLM_MODEL") or ANTHROPIC_MODEL
+LLM_API_KEY = os.getenv("LLM_API_KEY") or ANTHROPIC_API_KEY
+LLM_BASE_URL = os.getenv("LLM_BASE_URL") or None
+# DeepSeek caps output at 8192; the Anthropic default is 16000.
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "16000"))
+
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "100"))
