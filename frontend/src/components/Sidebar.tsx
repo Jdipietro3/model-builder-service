@@ -19,14 +19,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 import { useProjects } from "@/lib/projects-context";
 
 export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
-  const { projects, error } = useProjects();
+  const { projects, error, user, userLoading } = useProjects();
   const router = useRouter();
   // Seeded from whether a project is open, then owned by the user: opening a
   // project flips to its nav, and the back control flips back to the list.
   const [view, setView] = useState<"projects" | "project">(nav ? "project" : "projects");
+  const [signingOut, setSigningOut] = useState(false);
 
   // Opening a different project (or landing on `/`) re-seeds the view. Without
   // this, flipping to the list and then picking a project would leave the rail
@@ -34,6 +36,19 @@ export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
   useEffect(() => {
     setView(nav ? "project" : "projects");
   }, [nav]);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await api.logout();
+    } catch {
+      // Even a failed logout request should still land the user on /login —
+      // there's no useful recovery from here, and staying signed in to a UI
+      // that thinks it's logged out is worse than a redundant redirect.
+    } finally {
+      router.push("/login");
+    }
+  }
 
   return (
     <nav
@@ -100,6 +115,30 @@ export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
               ))}
             </ul>
           </div>
+
+          {/* Sits outside the flex-1 scroll area so it stays pinned to the
+              rail's bottom edge regardless of project list length. Gated on
+              userLoading (not just `user`) so a signed-in visitor never sees
+              this flash empty before the first /auth/me resolves. */}
+          {!userLoading && user && (
+            <div className="shrink-0 border-t border-zinc-800 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className="min-w-0 flex-1 truncate text-label text-zinc-400"
+                  title={user.email}
+                >
+                  {user.email}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="focus-ring-panel shrink-0 rounded px-2 py-1 text-label text-zinc-400 transition-colors hover:text-red-400 disabled:opacity-40"
+                >
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </nav>

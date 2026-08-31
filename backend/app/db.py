@@ -42,6 +42,7 @@ def _ensure_columns(engine) -> None:
         "projects": [
             ("recommended_run_id", "VARCHAR(32)"),
             ("recommendation_reason", "TEXT"),
+            ("user_id", "VARCHAR(32)"),
         ],
     }
     with engine.connect() as conn:

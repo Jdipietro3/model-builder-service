@@ -15,10 +15,31 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+class Session(Base):
+    __tablename__ = "sessions"
+
+    token: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+
+
 class Project(Base):
     __tablename__ = "projects"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    # Nullable at the DB level only for rows migrated in before auth existed
+    # (see db.py::_ensure_columns) — every row created through the API sets it.
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     # The LLM's current best-model pick for this project, set/updated via the
@@ -129,3 +150,16 @@ class InferenceLog(Base):
     # class_counts or stats — see ml/scoring.py::served_summary
     summary: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    deployment_id: Mapped[str] = mapped_column(ForeignKey("deployments.id"), index=True)
+    # sha256 of the full key — a high-entropy random token doesn't need a slow
+    # KDF the way a human-chosen password does (see auth.py).
+    key_hash: Mapped[str] = mapped_column(String(128), index=True)
+    prefix: Mapped[str] = mapped_column(String(16))  # for display only, e.g. "mb_AbCdEfGh"
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

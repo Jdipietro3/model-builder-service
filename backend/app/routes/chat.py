@@ -1,8 +1,9 @@
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
+from ..auth import owned_project
 from ..db import SessionLocal
 from ..models import Project
 from ..orchestrator.agent import run_turn
@@ -12,11 +13,7 @@ router = APIRouter(prefix="/projects/{project_id}", tags=["chat"])
 
 
 @router.post("/chat")
-async def chat(project_id: str, body: ChatRequest):
-    with SessionLocal() as check_db:
-        if not check_db.get(Project, project_id):
-            raise HTTPException(404, "Project not found")
-
+async def chat(project_id: str, body: ChatRequest, project: Project = Depends(owned_project)):
     async def gen():
         # The session must outlive the request-scope dependency, so manage it here.
         db = SessionLocal()

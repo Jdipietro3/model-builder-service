@@ -237,7 +237,11 @@ export function ProjectProvider({
    * reaches a terminal status (used by both approveRun and handleRetrain). */
   const watchRun = useCallback(
     (runId: string) => {
-      const es = new EventSource(api.runEventsUrl(runId));
+      // withCredentials is required here even though apiFetch already sends
+      // cookies for every REST call — EventSource is a separate browser API
+      // that does not go through fetch, so it needs its own opt-in or the
+      // session cookie never reaches this request and the stream 401s.
+      const es = new EventSource(api.runEventsUrl(runId), { withCredentials: true });
       es.onmessage = (ev) => {
         const data = JSON.parse(ev.data);
         setRunStates((prev) => ({

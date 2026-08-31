@@ -26,30 +26,6 @@ function extractErrorDetail(e: unknown): string {
   return msg;
 }
 
-function curlFor(endpoint: string, exampleRecord: Record<string, unknown>): string {
-  const body = JSON.stringify({ records: [exampleRecord] });
-  return `curl -X POST ${endpoint} \\\n  -H "Content-Type: application/json" \\\n  -d '${body}'`;
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        } catch {
-          // Clipboard API unavailable — silently no-op.
-        }
-      }}
-      className="focus-ring-panel rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400"
-    >
-      {copied ? "Copied" : "Copy"}
-    </button>
-  );
-}
 
 /** Paired served-vs-training distribution bars — inline SVG, mirrors ReportCard's
  * hand-rolled bar approach. Handles both class_counts (per-label proportion bars)
@@ -476,21 +452,6 @@ export default function DeploymentCard({
       </div>
 
       <div className="space-y-5 px-4 py-4">
-        <div>
-          <div className="mb-1.5 flex items-center justify-between">
-            <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Endpoint</h4>
-            <CopyButton text={curlFor(contract.endpoint, contract.example_record)} />
-          </div>
-          <div className="space-y-1.5">
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-300">
-              POST {contract.endpoint}
-            </div>
-            <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-400">
-              {curlFor(contract.endpoint, contract.example_record)}
-            </pre>
-          </div>
-        </div>
-
         <div>
           <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
             Input contract

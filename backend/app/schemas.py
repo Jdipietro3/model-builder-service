@@ -1,11 +1,69 @@
+import re
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 TaskType = Literal["binary_classification", "multiclass_classification", "regression", "forecasting"]
 DataShape = Literal["tabular", "timeseries", "text", "image"]
 TaskFamily = Literal["supervised", "forecasting", "clustering", "anomaly", "ensemble"]
+
+# Deliberately simple — good enough to catch typos, not a full RFC 5322 parser.
+# No EmailStr here: that needs the email-validator package, and this project
+# adds zero new dependencies (see auth.py).
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not _EMAIL_RE.match(v):
+            raise ValueError("invalid email address")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def _valid_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("password must be at least 8 characters")
+        return v
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: str
+    email: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ApiKeyCreateOut(BaseModel):
+    """Returned only from the create-key endpoint — the one time the full
+    plaintext key is ever available; only its hash is stored server-side."""
+
+    id: str
+    prefix: str
+    key: str
+    created_at: datetime
+
+
+class ApiKeyOut(BaseModel):
+    id: str
+    prefix: str
+    created_at: datetime
+    last_used_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
 
 
 class ProjectCreate(BaseModel):

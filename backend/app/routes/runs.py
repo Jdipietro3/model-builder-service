@@ -2,16 +2,17 @@ import asyncio
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
+from ..auth import current_user, owned_prediction, owned_run
 from ..config import MAX_UPLOAD_MB, PREDICTIONS_DIR
 from ..db import SessionLocal, get_db
 from ..jobs import submit_training
 from ..ml.plans import validate_plan
 from ..ml.scoring import load_model, read_csv_bytes, score_dataframe
-from ..models import Dataset, Prediction, Run
+from ..models import Dataset, Prediction, Project, Run
 from ..retrain import NoNewerDataError, retrain_run
 from ..schemas import ApproveRequest, PredictionOut, RunOut
 
@@ -20,18 +21,14 @@ predictions_router = APIRouter(prefix="/predictions", tags=["predictions"])
 
 
 @router.get("/{run_id}", response_model=RunOut)
-def get_run(run_id: str, db: Session = Depends(get_db)):
-    run = db.get(Run, run_id)
-    if not run:
-        raise HTTPException(404, "Run not found")
+def get_run(run: Run = Depends(owned_run)):
     return run
 
 
 @router.post("/{run_id}/approve", response_model=RunOut)
-def approve_run(run_id: str, body: ApproveRequest, db: Session = Depends(get_db)):
-    run = db.get(Run, run_id)
-    if not run:
-        raise HTTPException(404, "Run not found")
+def approve_run(
+    body: ApproveRequest, run: Run = Depends(owned_run), db: Session = Depends(get_db)
+):
     if run.status != "pending_approval":
         raise HTTPException(409, f"Run is '{run.status}', not pending approval")
 
@@ -44,16 +41,13 @@ def approve_run(run_id: str, body: ApproveRequest, db: Session = Depends(get_db)
         run.plan = plan
         db.commit()
 
-    submit_training(run_id)
+    submit_training(run.id)
     db.refresh(run)
     return run
 
 
 @router.post("/{run_id}/retrain", response_model=RunOut)
-def retrain(run_id: str, db: Session = Depends(get_db)):
-    run = db.get(Run, run_id)
-    if not run:
-        raise HTTPException(404, "Run not found")
+def retrain(run: Run = Depends(owned_run), db: Session = Depends(get_db)):
     try:
         new_run = retrain_run(db, run)
     except NoNewerDataError as e:
@@ -64,12 +58,19 @@ def retrain(run_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{run_id}/events")
-async def run_events(run_id: str):
+async def run_events(run_id: str, request: Request):
     """SSE stream of run progress; polls the DB until the run reaches a
-    terminal state. Simple and robust for a local prototype."""
+    terminal state. Simple and robust for a local prototype.
 
+    Auth is checked with a short-lived session here rather than the usual
+    current_user/owned_run Depends chain: FastAPI doesn't tear down a
+    Depends(get_db) session until the whole streamed response finishes, and
+    this stream can run for as long as training does."""
     with SessionLocal() as db:
-        if not db.get(Run, run_id):
+        user = current_user(request, db)  # raises 401 if not authenticated
+        run = db.get(Run, run_id)
+        project = db.get(Project, run.project_id) if run is not None else None
+        if run is None or project is None or project.user_id != user.id:
             raise HTTPException(404, "Run not found")
 
     async def gen():
@@ -102,11 +103,10 @@ async def run_events(run_id: str):
 
 
 @router.post("/{run_id}/predictions", response_model=PredictionOut)
-async def create_prediction(run_id: str, file: UploadFile, db: Session = Depends(get_db)):
+async def create_prediction(
+    file: UploadFile, run: Run = Depends(owned_run), db: Session = Depends(get_db)
+):
     """Score an uploaded CSV with a completed run's trained model."""
-    run = db.get(Run, run_id)
-    if not run:
-        raise HTTPException(404, "Run not found")
     if run.status != "completed" or not run.artifact_path:
         raise HTTPException(409, f"Run is '{run.status}' — only completed runs can predict")
     if not (file.filename or "").lower().endswith(".csv"):
@@ -144,10 +144,7 @@ async def create_prediction(run_id: str, file: UploadFile, db: Session = Depends
 
 
 @predictions_router.get("/{prediction_id}/download")
-def download_prediction(prediction_id: str, db: Session = Depends(get_db)):
-    prediction = db.get(Prediction, prediction_id)
-    if not prediction:
-        raise HTTPException(404, "Prediction not found")
+def download_prediction(prediction: Prediction = Depends(owned_prediction)):
     if not Path(prediction.output_path).exists():
         raise HTTPException(404, "Scored file no longer exists")
     return FileResponse(
@@ -158,12 +155,9 @@ def download_prediction(prediction_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{run_id}/artifact")
-def download_artifact(run_id: str, db: Session = Depends(get_db)):
-    run = db.get(Run, run_id)
-    if not run:
-        raise HTTPException(404, "Run not found")
+def download_artifact(run: Run = Depends(owned_run)):
     if not run.artifact_path or not Path(run.artifact_path).exists():
         raise HTTPException(404, "No artifact bundle for this run")
     return FileResponse(
-        run.artifact_path, filename=f"model_bundle_{run_id[:8]}.zip", media_type="application/zip"
+        run.artifact_path, filename=f"model_bundle_{run.id[:8]}.zip", media_type="application/zip"
     )

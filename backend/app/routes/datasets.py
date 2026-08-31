@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from ..auth import owned_dataset, owned_project
 from ..config import MAX_UPLOAD_MB, UPLOADS_DIR
 from ..db import get_db
 from ..ml.profiling import load_csv, profile_path
@@ -14,9 +15,9 @@ dataset_router = APIRouter(prefix="/datasets", tags=["datasets"])
 
 
 @router.post("", response_model=DatasetOut)
-async def upload_dataset(project_id: str, file: UploadFile, db: Session = Depends(get_db)):
-    if not db.get(Project, project_id):
-        raise HTTPException(404, "Project not found")
+async def upload_dataset(
+    file: UploadFile, project: Project = Depends(owned_project), db: Session = Depends(get_db)
+):
     if not (file.filename or "").lower().endswith(".csv"):
         raise HTTPException(400, "Only CSV files are supported in v1")
 
@@ -24,7 +25,7 @@ async def upload_dataset(project_id: str, file: UploadFile, db: Session = Depend
     if len(content) > MAX_UPLOAD_MB * 1024 * 1024:
         raise HTTPException(400, f"File exceeds {MAX_UPLOAD_MB} MB limit")
 
-    dataset = Dataset(project_id=project_id, filename=file.filename, path="")
+    dataset = Dataset(project_id=project.id, filename=file.filename, path="")
     db.add(dataset)
     db.flush()  # id defaults fire at flush; the path prefix needs it
     path = UPLOADS_DIR / f"{dataset.id}_{file.filename}"
@@ -41,7 +42,7 @@ async def upload_dataset(project_id: str, file: UploadFile, db: Session = Depend
     # Pin the profile into chat history as a card.
     db.add(
         Message(
-            project_id=project_id,
+            project_id=project.id,
             role="assistant",
             content="",
             cards=[
@@ -60,15 +61,12 @@ async def upload_dataset(project_id: str, file: UploadFile, db: Session = Depend
 
 @dataset_router.post("/{dataset_id}/update")
 async def update_dataset(
-    dataset_id: str,
     file: UploadFile,
     mode: str = Form(...),
+    old: Dataset = Depends(owned_dataset),
     db: Session = Depends(get_db),
 ):
-    old = db.get(Dataset, dataset_id)
-    if not old:
-        raise HTTPException(404, "Dataset not found")
-    newer = db.query(Dataset).filter(Dataset.parent_dataset_id == dataset_id).first()
+    newer = db.query(Dataset).filter(Dataset.parent_dataset_id == old.id).first()
     if newer:
         raise HTTPException(
             409, "This dataset has a newer version; update the latest version instead."

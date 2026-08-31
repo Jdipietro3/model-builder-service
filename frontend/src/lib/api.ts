@@ -14,6 +14,28 @@ export interface Project {
   recommendation_reason?: string | null;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  created_at: string;
+}
+
+export interface DeploymentKey {
+  id: string;
+  prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+/** Returned only from creation — `key` is the full plaintext secret and the
+ *  backend never sends it again after this response. */
+export interface CreatedDeploymentKey {
+  id: string;
+  prefix: string;
+  key: string;
+  created_at: string;
+}
+
 export interface ColumnStats {
   mean: number;
   std: number;
@@ -332,6 +354,42 @@ export type ChatEvent =
 
 // ---------- REST calls ----------
 
+/**
+ * Central fetch wrapper — every call in this file goes through it.
+ *
+ * Two jobs, both load-bearing:
+ *  1. Always sends `credentials: "include"` so the httpOnly `mb_session`
+ *     cookie travels with the request. With 18 call sites, "remember
+ *     credentials: include every time" is not a rule a person keeps; it has
+ *     to live in one place.
+ *  2. On a 401, the session is gone (or never existed) — there is no
+ *     half-authenticated state worth rendering, so this sends the browser
+ *     straight to /login and throws, which stops every caller before it acts
+ *     on a response it shouldn't have gotten.
+ *
+ * The redirect is skipped when already on /login or /signup: those pages
+ * mount ProjectsProvider too (it lives in the root layout), so their own
+ * api.me()/listProjects() calls 401 for a logged-out visitor. Redirecting to
+ * the page you're already on would just reload it in a loop. The 401's body
+ * is still read and folded into the thrown error either way, so a *login
+ * attempt* that comes back 401 (wrong password, not an expired session)
+ * still carries the backend's message for the form to show.
+ */
+async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const res = await fetch(`${API}${path}`, { ...init, credentials: "include" });
+  if (res.status === 401) {
+    if (typeof window !== "undefined") {
+      const p = window.location.pathname;
+      if (p !== "/login" && p !== "/signup") {
+        window.location.href = "/login";
+      }
+    }
+    const body = await res.text().catch(() => "");
+    throw new Error(`401: ${body}`);
+  }
+  return res;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.text();
@@ -341,21 +399,21 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export const api = {
-  listProjects: () => fetch(`${API}/projects`).then((r) => json<Project[]>(r)),
+  listProjects: () => apiFetch(`/projects`).then((r) => json<Project[]>(r)),
 
   createProject: (name: string) =>
-    fetch(`${API}/projects`, {
+    apiFetch(`/projects`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     }).then((r) => json<Project>(r)),
 
-  getProject: (id: string) => fetch(`${API}/projects/${id}`).then((r) => json<ProjectDetail>(r)),
+  getProject: (id: string) => apiFetch(`/projects/${id}`).then((r) => json<ProjectDetail>(r)),
 
   uploadDataset: (projectId: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return fetch(`${API}/projects/${projectId}/datasets`, { method: "POST", body: form }).then(
+    return apiFetch(`/projects/${projectId}/datasets`, { method: "POST", body: form }).then(
       (r) => json<Dataset>(r),
     );
   },
@@ -364,25 +422,25 @@ export const api = {
     const form = new FormData();
     form.append("file", file);
     form.append("mode", mode);
-    return fetch(`${API}/datasets/${datasetId}/update`, { method: "POST", body: form }).then((r) =>
+    return apiFetch(`/datasets/${datasetId}/update`, { method: "POST", body: form }).then((r) =>
       json<{ dataset: Dataset; diff: UpdateDiff }>(r),
     );
   },
 
   retrainRun: (runId: string) =>
-    fetch(`${API}/runs/${runId}/retrain`, { method: "POST" }).then((r) => json<Run>(r)),
+    apiFetch(`/runs/${runId}/retrain`, { method: "POST" }).then((r) => json<Run>(r)),
 
-  listMethodologies: () => fetch(`${API}/methodologies`).then((r) => json<Methodology[]>(r)),
+  listMethodologies: () => apiFetch(`/methodologies`).then((r) => json<Methodology[]>(r)),
 
   approveRun: (runId: string, planOverrides?: Partial<Plan>) =>
-    fetch(`${API}/runs/${runId}/approve`, {
+    apiFetch(`/runs/${runId}/approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan_overrides: planOverrides ?? null }),
     }).then((r) => json<Run>(r)),
 
   approveTournament: (tournamentId: string) =>
-    fetch(`${API}/tournaments/${tournamentId}/approve`, { method: "POST" }).then((r) =>
+    apiFetch(`/tournaments/${tournamentId}/approve`, { method: "POST" }).then((r) =>
       json<Run[]>(r),
     ),
 
@@ -391,7 +449,7 @@ export const api = {
   predict: (runId: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return fetch(`${API}/runs/${runId}/predictions`, { method: "POST", body: form }).then(
+    return apiFetch(`/runs/${runId}/predictions`, { method: "POST", body: form }).then(
       (r) => json<Prediction>(r),
     );
   },
@@ -401,40 +459,77 @@ export const api = {
   runEventsUrl: (runId: string) => `${API}/runs/${runId}/events`,
 
   createDeployment: (projectId: string, runId: string, name?: string) =>
-    fetch(`${API}/projects/${projectId}/deployments`, {
+    apiFetch(`/projects/${projectId}/deployments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ run_id: runId, name: name ?? null }),
     }).then((r) => json<Deployment>(r)),
 
   listDeployments: (projectId: string) =>
-    fetch(`${API}/projects/${projectId}/deployments`).then((r) => json<Deployment[]>(r)),
+    apiFetch(`/projects/${projectId}/deployments`).then((r) => json<Deployment[]>(r)),
 
-  getDeployment: (id: string) => fetch(`${API}/deployments/${id}`).then((r) => json<Deployment>(r)),
+  getDeployment: (id: string) => apiFetch(`/deployments/${id}`).then((r) => json<Deployment>(r)),
 
   predictDeployment: (id: string, records: Record<string, unknown>[]) =>
-    fetch(`${API}/deployments/${id}/predict`, {
+    apiFetch(`/deployments/${id}/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ records }),
     }).then((r) => json<PredictResponse>(r)),
 
   getDeploymentStats: (id: string) =>
-    fetch(`${API}/deployments/${id}/stats`).then((r) => json<ServingStats>(r)),
+    apiFetch(`/deployments/${id}/stats`).then((r) => json<ServingStats>(r)),
 
   promoteDeployment: (id: string, runId: string) =>
-    fetch(`${API}/deployments/${id}/promote`, {
+    apiFetch(`/deployments/${id}/promote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ run_id: runId }),
     }).then((r) => json<Deployment>(r)),
 
   setDeploymentStatus: (id: string, status: "active" | "disabled") =>
-    fetch(`${API}/deployments/${id}`, {
+    apiFetch(`/deployments/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     }).then((r) => json<Deployment>(r)),
+
+  // ---------- Auth ----------
+
+  signup: (email: string, password: string) =>
+    apiFetch(`/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }).then((r) => json<AuthUser>(r)),
+
+  login: (email: string, password: string) =>
+    apiFetch(`/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }).then((r) => json<AuthUser>(r)),
+
+  // 204 No Content — nothing to parse as JSON.
+  logout: () => apiFetch(`/auth/logout`, { method: "POST" }).then(() => undefined),
+
+  me: () => apiFetch(`/auth/me`).then((r) => json<AuthUser>(r)),
+
+  // ---------- Deployment API keys ----------
+
+  createDeploymentKey: (deploymentId: string) =>
+    apiFetch(`/deployments/${deploymentId}/keys`, { method: "POST" }).then((r) =>
+      json<CreatedDeploymentKey>(r),
+    ),
+
+  listDeploymentKeys: (deploymentId: string) =>
+    apiFetch(`/deployments/${deploymentId}/keys`).then((r) => json<DeploymentKey[]>(r)),
+
+  // 204 No Content.
+  deleteDeploymentKey: (deploymentId: string, keyId: string) =>
+    apiFetch(`/deployments/${deploymentId}/keys/${keyId}`, { method: "DELETE" }).then(
+      () => undefined,
+    ),
 
   /** POST a chat message and stream back orchestrator events. */
   async chatStream(
@@ -443,11 +538,19 @@ export const api = {
     kind: "user" | "system_event",
     onEvent: (e: ChatEvent) => void,
   ): Promise<void> {
-    const res = await fetch(`${API}/projects/${projectId}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, kind }),
-    });
+    let res: Response;
+    try {
+      res = await apiFetch(`/projects/${projectId}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, kind }),
+      });
+    } catch {
+      // apiFetch already redirected to /login on a 401 (or the request
+      // itself failed) — the streaming UI has nothing useful to do but stop.
+      onEvent({ type: "error", message: "Session expired." });
+      return;
+    }
     if (!res.ok || !res.body) {
       onEvent({ type: "error", message: `Chat request failed (${res.status})` });
       return;

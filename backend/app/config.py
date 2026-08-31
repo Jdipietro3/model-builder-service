@@ -33,3 +33,8 @@ LLM_BASE_URL = os.getenv("LLM_BASE_URL") or None
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "16000"))
 
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "100"))
+
+SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
+# False for local dev over http://localhost; set true once served over https so
+# the session cookie isn't sent in the clear.
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"

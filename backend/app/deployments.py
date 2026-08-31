@@ -19,21 +19,56 @@ def _col_by_name(dataset_profile: dict) -> dict[str, dict]:
     return {c["name"]: c for c in dataset_profile.get("columns", [])}
 
 
+def _coerce_to_dtype(value: Any, dtype: str | None) -> Any:
+    """Cast a profile display value back to the column's real dtype.
+
+    The profiler stores ``top_values`` and ``sample_values`` as STRINGS, because
+    they exist to be rendered. Copying them straight into example_record shipped
+    an example that contradicted the dtype we advertise beside it: a low
+    -cardinality int64 column came out as "0" while a high-cardinality one came
+    out as 10.9659, because only the latter falls through to the numeric mean.
+
+    That is not cosmetic. sklearn's ColumnTransformer routes a string down the
+    categorical branch instead of the numeric one, so a caller who pasted the
+    documented example got a confident prediction computed from garbage — no
+    error, just a different answer. Measured on the phishing model, the same
+    record scored "phishing 87.7%" as strings and "legitimate 72.7%" as numbers.
+    """
+    if not isinstance(value, str) or not dtype:
+        return value
+    d = str(dtype).lower()
+    try:
+        if d.startswith(("int", "uint")):
+            return int(float(value))
+        if d.startswith("float"):
+            return float(value)
+        if d.startswith("bool"):
+            return value.strip().lower() in ("true", "1")
+    except ValueError:
+        # Genuinely non-numeric text in a column we believed was numeric —
+        # hand back the original rather than inventing a value.
+        return value
+    return value
+
+
 def _example_value(col_info: dict | None) -> Any:
     """A representative value for a feature column, for the contract's
     example_record: the most common value for low-cardinality columns, the
-    mean for numeric columns, else the first sample value seen."""
+    mean for numeric columns, else the first sample value seen. Always cast to
+    the column's own dtype, so the example is something the model can actually
+    consume (see _coerce_to_dtype)."""
     if not col_info:
         return None
+    dtype = col_info.get("dtype")
     top_values = col_info.get("top_values")
     if top_values:
-        return top_values[0]["value"]
+        return _coerce_to_dtype(top_values[0]["value"], dtype)
     stats = col_info.get("stats")
     if stats:
         return stats["mean"]
     sample_values = col_info.get("sample_values")
     if sample_values:
-        return sample_values[0]
+        return _coerce_to_dtype(sample_values[0], dtype)
     return None
 
 
