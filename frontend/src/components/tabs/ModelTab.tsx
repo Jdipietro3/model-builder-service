@@ -67,10 +67,16 @@ export default function ModelTab() {
   const datasetTip = findChainTip(selected.dataset_id, datasets);
   const hasNewerData = !!datasetTip && datasetTip.id !== selected.dataset_id;
 
-  // Pre-approval tournament grouping: while every candidate is still awaiting
-  // approval, the whole tournament is approved once via TournamentCard (rendered
-  // in place of the per-run PlanCard). Once training starts we fall through to the
-  // normal per-run PlanCard / TrainingCard flow driven by the rail's dropdown.
+  // A tournament renders as a tournament for its whole life: TournamentCard in
+  // place of the per-run PlanCard, showing every candidate's live status.
+  //
+  // This used to be gated on `tournamentPending`, so approving flipped the card
+  // off and dropped the user to the single selected run. Since selection follows
+  // the newest run and the ensemble is created last, that meant watching a run
+  // that cannot start yet — "Waiting for tournament candidates to finish, 0%" —
+  // while three candidates trained invisibly behind it. `tournamentPending` now
+  // only governs the approve footer, which TournamentCard hides on its own.
+  const isTournament = !!selected.tournament_id;
   const tournamentRuns = selected.tournament_id
     ? runs.filter((r) => r.tournament_id === selected.tournament_id)
     : [];
@@ -99,13 +105,6 @@ export default function ModelTab() {
     selected.plan.task_type !== "forecasting" &&
     selected.plan.target_column === projectDeployment.contract.target_column &&
     selected.plan.task_type === projectDeployment.contract.task_type;
-
-  // Synthesized progress for the ensemble's pre-promotion "waiting" state (and the
-  // brief "claimed" state during promotion) when no live SSE progress has arrived yet.
-  const trainingProgress =
-    (status === "waiting" || status === "claimed") && !state?.progress
-      ? { stage: "waiting", pct: 0, message: "Waiting for tournament candidates to finish" }
-      : (state?.progress ?? null);
 
   const projectDeploymentRun = projectDeployment
     ? (runs.find((r) => r.id === projectDeployment.run_id) ?? null)
@@ -179,7 +178,7 @@ export default function ModelTab() {
         </div>
       )}
 
-      {tournamentPending ? (
+      {isTournament ? (
         <TournamentCard
           tournamentId={selected.tournament_id!}
           datasetFilename={dataset?.filename ?? ""}
@@ -204,7 +203,7 @@ export default function ModelTab() {
       )}
 
       {!tournamentPending && isTrainingLikeStatus(status) && (
-        <TrainingCard status={status} progress={trainingProgress} error={state?.error ?? null} />
+        <TrainingCard status={status} progress={state?.progress ?? null} error={state?.error ?? null} />
       )}
 
       {(status === "completed" && hasNewerData) ||

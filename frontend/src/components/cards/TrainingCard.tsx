@@ -24,6 +24,21 @@ export default function TrainingCard({
     );
   }
 
+  // A run that has not started yet gets no meter. The bar below floors its width
+  // at 2% and pairs it with a pulsing dot, which together read as "working, but
+  // frozen at 0%" — exactly the wrong story for a tournament ensemble, which
+  // legitimately cannot begin until its candidates finish. Say that instead.
+  if (status === "waiting" || status === "claimed") {
+    return (
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
+        <div className="flex items-center gap-2 text-sm text-zinc-400">
+          <span className="h-2 w-2 rounded-full bg-zinc-500" />
+          {progress?.message ?? "Waiting for tournament candidates to finish"}
+        </div>
+      </div>
+    );
+  }
+
   const pct = progress?.pct ?? 0;
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
