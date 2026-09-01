@@ -123,12 +123,13 @@ export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
           {!userLoading && user && (
             <div className="shrink-0 border-t border-zinc-800 p-3">
               <div className="flex items-center justify-between gap-2">
-                <span
-                  className="min-w-0 flex-1 truncate text-label text-zinc-400"
+                <Link
+                  href="/account"
+                  className="focus-ring-panel min-w-0 flex-1 truncate rounded text-label text-zinc-400 transition-colors hover:text-zinc-200"
                   title={user.email}
                 >
                   {user.email}
-                </span>
+                </Link>
                 <button
                   onClick={handleSignOut}
                   disabled={signingOut}

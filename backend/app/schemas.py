@@ -34,6 +34,13 @@ class SignupRequest(BaseModel):
         return v
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    # Same floor as signup — a change flow that accepts a weaker password than
+    # registration would is a hole, not a convenience.
+    new_password: str = Field(min_length=8, max_length=200)
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str

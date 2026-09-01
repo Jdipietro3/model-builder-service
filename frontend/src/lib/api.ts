@@ -515,6 +515,18 @@ export const api = {
 
   me: () => apiFetch(`/auth/me`).then((r) => json<AuthUser>(r)),
 
+  // 204 No Content. Rotates the session cookie server-side, so the caller
+  // stays signed in here while every other session is torn down.
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiFetch(`/auth/password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }).then(() => undefined),
+
+  // 204 No Content. Ends every session, including the one making this call.
+  logoutAll: () => apiFetch(`/auth/logout-all`, { method: "POST" }).then(() => undefined),
+
   // ---------- Deployment API keys ----------
 
   createDeploymentKey: (deploymentId: string) =>

@@ -14,9 +14,14 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
-from .config import COOKIE_SECURE, SESSION_TTL_DAYS
+from .config import (
+    COOKIE_SECURE,
+    LOGIN_MAX_ATTEMPTS,
+    LOGIN_WINDOW_MINUTES,
+    SESSION_TTL_DAYS,
+)
 from .db import get_db
-from .models import ApiKey, Dataset, Deployment, Prediction, Project, Run
+from .models import ApiKey, Dataset, Deployment, LoginAttempt, Prediction, Project, Run
 from .models import Session as SessionRow
 from .models import User
 
@@ -48,6 +53,96 @@ def verify_password(pw: str, stored: str) -> bool:
         return False
     candidate = hashlib.scrypt(pw.encode(), salt=salt, **_SCRYPT_PARAMS)
     return hmac.compare_digest(candidate, expected)
+
+
+# A real hash of a throwaway password, computed once at import.
+#
+# NOT dead code, and do not "simplify" it away. Login used to read
+# `if not user or not verify_password(...)`, and Python short-circuits `or`, so
+# an unknown email never paid scrypt's cost. Measured against this server that
+# was 334ms for a real account against 215ms for a nonexistent one — enough to
+# enumerate the user list with a stopwatch, which is exactly what the
+# deliberately generic "Invalid email or password" message exists to prevent.
+# Verifying against this constant when no user matched keeps every login on the
+# same code path, doing the same work.
+_DUMMY_HASH = hash_password(secrets.token_urlsafe(32))
+
+
+def client_ip(request: Request) -> str:
+    """Best-effort client address for rate limiting.
+
+    X-Forwarded-For is trusted when present because behind a proxy
+    `request.client.host` is the proxy itself, and every client would then share
+    one bucket. That trust is only sound when a proxy you control sets the
+    header — exposed directly to the internet, a client can forge it and dodge
+    the per-ip limit. The per-email limit is the backstop for that case.
+    """
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()[:45]
+    return (request.client.host if request.client else "unknown")[:45]
+
+
+def _attempt_cutoff() -> datetime:
+    # Naive to match what SQLite hands back (see optional_current_user).
+    return (_now() - timedelta(minutes=LOGIN_WINDOW_MINUTES)).replace(tzinfo=None)
+
+
+def record_failed_login(db: Session, email: str, ip: str) -> None:
+    db.add(LoginAttempt(email=email, ip=ip))
+    db.commit()
+
+
+def login_blocked(db: Session, email: str, ip: str) -> bool:
+    """True once EITHER the email or the ip has too many recent failures."""
+    cutoff = _attempt_cutoff()
+    by_email = (
+        db.query(LoginAttempt)
+        .filter(LoginAttempt.email == email, LoginAttempt.created_at >= cutoff)
+        .count()
+    )
+    if by_email >= LOGIN_MAX_ATTEMPTS:
+        return True
+    by_ip = (
+        db.query(LoginAttempt)
+        .filter(LoginAttempt.ip == ip, LoginAttempt.created_at >= cutoff)
+        .count()
+    )
+    return by_ip >= LOGIN_MAX_ATTEMPTS
+
+
+def ip_blocked(db: Session, ip: str) -> bool:
+    """Per-ip only — used by signup, where there is no account to target."""
+    return (
+        db.query(LoginAttempt)
+        .filter(LoginAttempt.ip == ip, LoginAttempt.created_at >= _attempt_cutoff())
+        .count()
+        >= LOGIN_MAX_ATTEMPTS
+    )
+
+
+def clear_login_attempts(db: Session, email: str) -> None:
+    db.query(LoginAttempt).filter(LoginAttempt.email == email).delete()
+    db.commit()
+
+
+def purge_expired_sessions(db: Session) -> int:
+    """Sessions expire lazily — a row is only noticed when someone presents that
+    exact token, so an abandoned session sits there forever. Called at startup
+    since this prototype has no scheduler."""
+    now = _now().replace(tzinfo=None)
+    removed = db.query(SessionRow).filter(SessionRow.expires_at < now).delete()
+    removed += db.query(LoginAttempt).filter(LoginAttempt.created_at < _attempt_cutoff()).delete()
+    db.commit()
+    return removed
+
+
+def delete_user_sessions(db: Session, user_id: str, keep_token: str | None = None) -> None:
+    q = db.query(SessionRow).filter(SessionRow.user_id == user_id)
+    if keep_token:
+        q = q.filter(SessionRow.token != keep_token)
+    q.delete(synchronize_session=False)
+    db.commit()
 
 
 def create_session(db: Session, user: User) -> SessionRow:

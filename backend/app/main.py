@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .config import CORS_ORIGINS
 from .db import init_db
 from .routes import auth, chat, datasets, deployments, projects, runs, tournaments
 
@@ -14,7 +15,7 @@ app = FastAPI(title="Model Builder Service", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,6 +25,19 @@ app.add_middleware(
 @app.on_event("startup")
 def _startup() -> None:
     init_db()
+    # Session expiry is otherwise only enforced when someone presents that exact
+    # token, so abandoned rows accumulate forever. No scheduler in this
+    # prototype, so startup is the sweep.
+    from .auth import purge_expired_sessions
+    from .db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        removed = purge_expired_sessions(db)
+        if removed:
+            logging.getLogger("auth").info("purged %d expired session/attempt rows", removed)
+    finally:
+        db.close()
 
 
 app.include_router(auth.router)

@@ -51,6 +51,26 @@ cd frontend && npm run dev
 Open http://localhost:3000, create a project, upload `samples/churn.csv`, and type
 "predict which customers will churn".
 
+## Accounts
+
+Signup is open and self-serve. There is **no self-serve password reset** — that
+needs mail infrastructure this prototype doesn't have — so a forgotten password
+is recovered by an operator with shell access:
+
+```powershell
+venv\Scripts\python.exe backend\scripts\reset_password.py --list
+venv\Scripts\python.exe backend\scripts\reset_password.py user@example.com
+venv\Scripts\python.exe backend\scripts\reset_password.py user@example.com --generate
+```
+
+Without `--generate` it prompts twice without echoing. The password is never
+taken as a command-line argument, because arguments land in shell history and
+the process list.
+
+A reset signs out every existing session for that account and clears its failed
+login attempts — otherwise the rate limiting that the user just tripped would
+keep them locked out after the reset.
+
 ## v1 scope
 
 Tabular CSV only; binary/multiclass classification and regression; six

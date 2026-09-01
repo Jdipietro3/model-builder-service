@@ -163,3 +163,23 @@ class ApiKey(Base):
     prefix: Mapped[str] = mapped_column(String(16))  # for display only, e.g. "mb_AbCdEfGh"
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class LoginAttempt(Base):
+    """One failed login, kept just long enough to rate limit.
+
+    Counted two ways, which is why both columns are indexed: by email, to stop
+    someone hammering one account, and by ip, to stop the same client spraying
+    one password across many accounts. Either count alone leaves the other
+    attack wide open.
+
+    Only failures are recorded — a successful login clears the email's rows, so
+    this table stays small and never becomes a login history.
+    """
+
+    __tablename__ = "login_attempts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    ip: Mapped[str] = mapped_column(String(45), index=True)  # 45 chars fits IPv6
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now, index=True)

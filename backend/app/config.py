@@ -38,3 +38,18 @@ SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
 # False for local dev over http://localhost; set true once served over https so
 # the session cookie isn't sent in the clear.
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+
+# Failed logins allowed per email AND per ip inside the window before further
+# attempts are refused. Counted separately so neither targeting one account nor
+# spraying many is left uncovered.
+LOGIN_MAX_ATTEMPTS = int(os.getenv("LOGIN_MAX_ATTEMPTS", "10"))
+LOGIN_WINDOW_MINUTES = int(os.getenv("LOGIN_WINDOW_MINUTES", "15"))
+
+# Browser origins allowed to call this API with credentials. Never "*": the CORS
+# spec forbids a wildcard alongside allow_credentials, and the session cookie
+# would simply stop being sent.
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+    if o.strip()
+]
