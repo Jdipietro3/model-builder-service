@@ -1,0 +1,916 @@
+{
+  "churn_logistic": {
+    "best_params": {
+      "C": 1.0
+    },
+    "caveats": [
+      "The model underperforms on tenure_months='(36.0, 53.25]' (roc_auc 0.8499 vs 0.9106 overall, n=242). Check whether this segment is well represented in training data."
+    ],
+    "cv": {
+      "mean": 0.9134,
+      "metric": "roc_auc",
+      "n_candidates": 3,
+      "n_splits": 5,
+      "std": 0.011
+    },
+    "data_shape": "tabular",
+    "diagnostics": {
+      "calibration": {
+        "bins": [
+          {
+            "n": 262,
+            "p_pred": 0.0352,
+            "p_true": 0.0191
+          },
+          {
+            "n": 85,
+            "p_pred": 0.1512,
+            "p_true": 0.1647
+          },
+          {
+            "n": 75,
+            "p_pred": 0.248,
+            "p_true": 0.28
+          },
+          {
+            "n": 73,
+            "p_pred": 0.348,
+            "p_true": 0.4247
+          },
+          {
+            "n": 72,
+            "p_pred": 0.4473,
+            "p_true": 0.5556
+          },
+          {
+            "n": 63,
+            "p_pred": 0.5503,
+            "p_true": 0.4921
+          },
+          {
+            "n": 51,
+            "p_pred": 0.6527,
+            "p_true": 0.7059
+          },
+          {
+            "n": 65,
+            "p_pred": 0.7546,
+            "p_true": 0.7077
+          },
+          {
+            "n": 94,
+            "p_pred": 0.8498,
+            "p_true": 0.8511
+          },
+          {
+            "n": 160,
+            "p_pred": 0.9619,
+            "p_true": 0.9938
+          }
+        ],
+        "brier": 0.1223,
+        "metric": "brier"
+      },
+      "segments": [
+        {
+          "column": "tenure_months",
+          "metric": "roc_auc",
+          "overall": 0.9106,
+          "segments": [
+            {
+              "metrics": {
+                "roc_auc": 0.8863
+              },
+              "n": 253,
+              "value": "(0.999, 19.0]"
+            },
+            {
+              "metrics": {
+                "roc_auc": 0.8649
+              },
+              "n": 255,
+              "value": "(19.0, 36.0]"
+            },
+            {
+              "metrics": {
+                "roc_auc": 0.8499
+              },
+              "n": 242,
+              "value": "(36.0, 53.25]"
+            },
+            {
+              "metrics": {
+                "roc_auc": 0.9173
+              },
+              "n": 250,
+              "value": "(53.25, 71.0]"
+            }
+          ],
+          "worst": {
+            "n": 242,
+            "score": 0.8499,
+            "value": "(36.0, 53.25]"
+          }
+        },
+        {
+          "column": "contract_type",
+          "metric": "roc_auc",
+          "overall": 0.9106,
+          "segments": [
+            {
+              "metrics": {
+                "roc_auc": 0.8971
+              },
+              "n": 544,
+              "value": "month-to-month"
+            },
+            {
+              "metrics": {
+                "roc_auc": 0.8934
+              },
+              "n": 261,
+              "value": "one-year"
+            },
+            {
+              "metrics": {
+                "roc_auc": 0.9097
+              },
+              "n": 195,
+              "value": "two-year"
+            }
+          ],
+          "worst": {
+            "n": 261,
+            "score": 0.8934,
+            "value": "one-year"
+          }
+        }
+      ],
+      "single_feature": [
+        {
+          "feature": "tenure_months",
+          "full_score": 0.9106,
+          "ratio": 0.8468,
+          "solo_score": 0.7711
+        },
+        {
+          "feature": "contract_type",
+          "full_score": 0.9106,
+          "ratio": 0.728,
+          "solo_score": 0.6629
+        },
+        {
+          "feature": "support_calls",
+          "full_score": 0.9106,
+          "ratio": 0.7376,
+          "solo_score": 0.6717
+        }
+      ]
+    },
+    "feature_importances": [
+      {
+        "feature": "tenure_months",
+        "importance": 0.2099,
+        "std": 0.0152
+      },
+      {
+        "feature": "contract_type",
+        "importance": 0.1041,
+        "std": 0.0028
+      },
+      {
+        "feature": "support_calls",
+        "importance": 0.0843,
+        "std": 0.0028
+      },
+      {
+        "feature": "monthly_charges",
+        "importance": 0.0454,
+        "std": 0.0058
+      },
+      {
+        "feature": "payment_method",
+        "importance": 0.0181,
+        "std": 0.0025
+      },
+      {
+        "feature": "international_plan",
+        "importance": 0.0028,
+        "std": 0.0006
+      }
+    ],
+    "features_dropped": [
+      {
+        "name": "customer_id",
+        "reason": "excluded in plan"
+      }
+    ],
+    "features_used": [
+      "tenure_months",
+      "monthly_charges",
+      "support_calls",
+      "contract_type",
+      "payment_method",
+      "international_plan"
+    ],
+    "holdout": {
+      "baseline_description": "always predicting the majority class ('0')",
+      "baseline_metrics": {
+        "accuracy": 0.537,
+        "balanced_accuracy": 0.5,
+        "f1": 0.0,
+        "pr_auc": 0.463,
+        "roc_auc": 0.5
+      },
+      "confusion_matrix": {
+        "labels": [
+          "0",
+          "1"
+        ],
+        "matrix": [
+          [
+            456,
+            81
+          ],
+          [
+            111,
+            352
+          ]
+        ]
+      },
+      "metrics": {
+        "accuracy": 0.808,
+        "balanced_accuracy": 0.8047,
+        "f1": 0.7857,
+        "pr_auc": 0.9018,
+        "roc_auc": 0.9106
+      }
+    },
+    "methodology": {
+      "display_name": "Logistic Regression (baseline)",
+      "id": "classification.logistic_baseline"
+    },
+    "n_test": 1000,
+    "n_train": 4000,
+    "primary_metric": "roc_auc",
+    "target_column": "churned",
+    "task_family": "supervised",
+    "task_type": "binary_classification"
+  },
+  "churn_rf": {
+    "best_params": {
+      "max_depth": 10,
+      "min_samples_leaf": 5
+    },
+    "caveats": [
+      "The model underperforms on tenure_months='(36.0, 53.25]' (roc_auc 0.826 vs 0.8952 overall, n=242). Check whether this segment is well represented in training data."
+    ],
+    "cv": {
+      "mean": 0.902,
+      "metric": "roc_auc",
+      "n_candidates": 4,
+      "n_splits": 5,
+      "std": 0.0101
+    },
+    "data_shape": "tabular",
+    "diagnostics": {
+      "calibration": {
+        "bins": [
+          {
+            "n": 187,
+            "p_pred": 0.0458,
+            "p_true": 0.016
+          },
+          {
+            "n": 106,
+            "p_pred": 0.1466,
+            "p_true": 0.1038
+          },
+          {
+            "n": 96,
+            "p_pred": 0.2471,
+            "p_true": 0.1979
+          },
+          {
+            "n": 81,
+            "p_pred": 0.3462,
+            "p_true": 0.4074
+          },
+          {
+            "n": 91,
+            "p_pred": 0.449,
+            "p_true": 0.5055
+          },
+          {
+            "n": 74,
+            "p_pred": 0.5514,
+            "p_true": 0.5946
+          },
+          {
+            "n": 69,
+            "p_pred": 0.6484,
+            "p_true": 0.6812
+          },
+          {
+            "n": 85,
+            "p_pred": 0.7525,
+            "p_true": 0.7294
+          },
+          {
+            "n": 84,
+            "p_pred": 0.8493,
+            "p_true": 0.869
+          },
+          {
+            "n": 127,
+            "p_pred": 0.9495,
+            "p_true": 0.9843
+          }
+        ],
+        "brier": 0.1322,
+        "metric": "brier"
+      },
+      "segments": [
+        {
+          "column": "tenure_months",
+          "metric": "roc_auc",
+          "overall": 0.8952,
+          "segments": [
+            {
+              "metrics": {
+                "roc_auc": 0.8751
+              },
+              "n": 253,
+              "value": "(0.999, 19.0]"
+            },
+            {
+              "metrics": {
+                "roc_auc": 0.8371
+              },
+              "n": 255,
+              "value": "(19.0, 36.0]"
+            },
+            {
+              "metrics": {
+                "roc_auc": 0.826
+              },
+              "n": 242,
+              "value": "(36.0, 53.25]"
+            },
+            {
+              "metrics": {
+                "roc_auc": 0.899
+              },
+              "n": 250,
+              "value": "(53.25, 71.0]"
+            }
+          ],
+          "worst": {
+            "n": 242,
+            "score": 0.826,
+            "value": "(36.0, 53.25]"
+          }
+        },
+        {
+          "column": "contract_type",
+          "metric": "roc_auc",
+          "overall": 0.8952,
+          "segments": [
+            {
+              "metrics": {
+                "roc_auc": 0.8818
+              },
+              "n": 544,
+              "value": "month-to-month"
+            },
+            {
+              "metrics": {
+                "roc_auc": 0.867
+              },
+              "n": 261,
+              "value": "one-year"
+            },
+            {
+              "metrics": {
+                "roc_auc": 0.9029
+              },
+              "n": 195,
+              "value": "two-year"
+            }
+          ],
+          "worst": {
+            "n": 261,
+            "score": 0.867,
+            "value": "one-year"
+          }
+        }
+      ],
+      "single_feature": [
+        {
+          "feature": "tenure_months",
+          "full_score": 0.8952,
+          "ratio": 0.8614,
+          "solo_score": 0.7711
+        },
+        {
+          "feature": "contract_type",
+          "full_score": 0.8952,
+          "ratio": 0.7405,
+          "solo_score": 0.6629
+        },
+        {
+          "feature": "support_calls",
+          "full_score": 0.8952,
+          "ratio": 0.7503,
+          "solo_score": 0.6717
+        }
+      ]
+    },
+    "feature_importances": [
+      {
+        "feature": "tenure_months",
+        "importance": 0.2012,
+        "std": 0.0129
+      },
+      {
+        "feature": "contract_type",
+        "importance": 0.1066,
+        "std": 0.0029
+      },
+      {
+        "feature": "support_calls",
+        "importance": 0.0672,
+        "std": 0.0016
+      },
+      {
+        "feature": "monthly_charges",
+        "importance": 0.0381,
+        "std": 0.0057
+      },
+      {
+        "feature": "payment_method",
+        "importance": 0.0174,
+        "std": 0.0037
+      },
+      {
+        "feature": "international_plan",
+        "importance": 0.0034,
+        "std": 0.0002
+      }
+    ],
+    "features_dropped": [
+      {
+        "name": "customer_id",
+        "reason": "excluded in plan"
+      }
+    ],
+    "features_used": [
+      "tenure_months",
+      "monthly_charges",
+      "support_calls",
+      "contract_type",
+      "payment_method",
+      "international_plan"
+    ],
+    "holdout": {
+      "baseline_description": "always predicting the majority class ('0')",
+      "baseline_metrics": {
+        "accuracy": 0.537,
+        "balanced_accuracy": 0.5,
+        "f1": 0.0,
+        "pr_auc": 0.463,
+        "roc_auc": 0.5
+      },
+      "confusion_matrix": {
+        "labels": [
+          "0",
+          "1"
+        ],
+        "matrix": [
+          [
+            449,
+            88
+          ],
+          [
+            112,
+            351
+          ]
+        ]
+      },
+      "metrics": {
+        "accuracy": 0.8,
+        "balanced_accuracy": 0.7971,
+        "f1": 0.7783,
+        "pr_auc": 0.8822,
+        "roc_auc": 0.8952
+      }
+    },
+    "methodology": {
+      "display_name": "Random Forest",
+      "id": "classification.random_forest"
+    },
+    "n_test": 1000,
+    "n_train": 4000,
+    "primary_metric": "roc_auc",
+    "target_column": "churned",
+    "task_family": "supervised",
+    "task_type": "binary_classification"
+  },
+  "house_linear": {
+    "best_params": {
+      "alpha": 0.1
+    },
+    "caveats": [
+      "The model leans heavily on 'sqft' (74% of total importance). Verify this column is genuinely available at prediction time and isn't leaking the answer.",
+      "The model underperforms on sqft='(3617.0, 4494.0]' (rmse 25784.2182 vs 24943.5361 overall, n=150). Check whether this segment is well represented in training data."
+    ],
+    "cv": {
+      "mean": -24747.2987,
+      "metric": "rmse",
+      "n_candidates": 3,
+      "n_splits": 5,
+      "std": 978.2908
+    },
+    "data_shape": "tabular",
+    "diagnostics": {
+      "calibration": null,
+      "segments": [
+        {
+          "column": "sqft",
+          "metric": "rmse",
+          "overall": 24943.5361,
+          "segments": [
+            {
+              "metrics": {
+                "rmse": 25716.8215
+              },
+              "n": 150,
+              "value": "(1644.75, 2590.5]"
+            },
+            {
+              "metrics": {
+                "rmse": 23523.4384
+              },
+              "n": 150,
+              "value": "(2590.5, 3617.0]"
+            },
+            {
+              "metrics": {
+                "rmse": 25784.2182
+              },
+              "n": 150,
+              "value": "(3617.0, 4494.0]"
+            },
+            {
+              "metrics": {
+                "rmse": 24681.714
+              },
+              "n": 150,
+              "value": "(608.999, 1644.75]"
+            }
+          ],
+          "worst": {
+            "n": 150,
+            "score": 25784.2182,
+            "value": "(3617.0, 4494.0]"
+          }
+        },
+        {
+          "column": "neighborhood",
+          "metric": "rmse",
+          "overall": 24943.5361,
+          "segments": [
+            {
+              "metrics": {
+                "rmse": 25166.8241
+              },
+              "n": 173,
+              "value": "downtown"
+            },
+            {
+              "metrics": {
+                "rmse": 25112.8998
+              },
+              "n": 97,
+              "value": "rural"
+            },
+            {
+              "metrics": {
+                "rmse": 25523.9677
+              },
+              "n": 268,
+              "value": "suburbs"
+            },
+            {
+              "metrics": {
+                "rmse": 21238.5106
+              },
+              "n": 62,
+              "value": "waterfront"
+            }
+          ],
+          "worst": {
+            "n": 268,
+            "score": 25523.9677,
+            "value": "suburbs"
+          }
+        }
+      ],
+      "single_feature": [
+        {
+          "feature": "sqft",
+          "full_score": 24943.5361,
+          "ratio": 0.402,
+          "solo_score": 62055.7111
+        },
+        {
+          "feature": "neighborhood",
+          "full_score": 24943.5361,
+          "ratio": 0.1373,
+          "solo_score": 181724.0152
+        },
+        {
+          "feature": "age_years",
+          "full_score": 24943.5361,
+          "ratio": 0.134,
+          "solo_score": 186114.9894
+        }
+      ]
+    },
+    "feature_importances": [
+      {
+        "feature": "sqft",
+        "importance": 194567.8395,
+        "std": 2442.9744
+      },
+      {
+        "feature": "neighborhood",
+        "importance": 43661.597,
+        "std": 862.4106
+      },
+      {
+        "feature": "age_years",
+        "importance": 11148.803,
+        "std": 690.1959
+      },
+      {
+        "feature": "bedrooms",
+        "importance": 7599.1864,
+        "std": 245.2261
+      },
+      {
+        "feature": "bathrooms",
+        "importance": 3020.9619,
+        "std": 190.278
+      },
+      {
+        "feature": "has_garage",
+        "importance": 2442.318,
+        "std": 377.9185
+      }
+    ],
+    "features_dropped": [
+      {
+        "name": "listing_id",
+        "reason": "excluded in plan"
+      }
+    ],
+    "features_used": [
+      "sqft",
+      "bedrooms",
+      "bathrooms",
+      "age_years",
+      "neighborhood",
+      "has_garage"
+    ],
+    "holdout": {
+      "baseline_description": "always predicting the training-set mean",
+      "baseline_metrics": {
+        "mae": 158852.0158,
+        "r2": -0.0022,
+        "rmse": 186023.0631
+      },
+      "metrics": {
+        "mae": 19460.6503,
+        "r2": 0.982,
+        "rmse": 24943.5361
+      },
+      "residuals": {
+        "mean": -1081.5811,
+        "p10": -32493.5334,
+        "p90": 31430.3321,
+        "target_mean": 473570.5,
+        "target_std": 185814.3304
+      }
+    },
+    "methodology": {
+      "display_name": "Ridge Regression (baseline)",
+      "id": "regression.linear_baseline"
+    },
+    "n_test": 600,
+    "n_train": 2400,
+    "primary_metric": "rmse",
+    "target_column": "price",
+    "task_family": "supervised",
+    "task_type": "regression"
+  },
+  "house_rf": {
+    "best_params": {
+      "max_depth": 10,
+      "min_samples_leaf": 1
+    },
+    "caveats": [
+      "The model leans heavily on 'sqft' (80% of total importance). Verify this column is genuinely available at prediction time and isn't leaking the answer.",
+      "The model underperforms on neighborhood='rural' (rmse 32454.2018 vs 29666.8616 overall, n=97). Check whether this segment is well represented in training data."
+    ],
+    "cv": {
+      "mean": -28767.7379,
+      "metric": "rmse",
+      "n_candidates": 4,
+      "n_splits": 5,
+      "std": 337.5473
+    },
+    "data_shape": "tabular",
+    "diagnostics": {
+      "calibration": null,
+      "segments": [
+        {
+          "column": "sqft",
+          "metric": "rmse",
+          "overall": 29666.8616,
+          "segments": [
+            {
+              "metrics": {
+                "rmse": 29268.4659
+              },
+              "n": 150,
+              "value": "(1644.75, 2590.5]"
+            },
+            {
+              "metrics": {
+                "rmse": 27995.8258
+              },
+              "n": 150,
+              "value": "(2590.5, 3617.0]"
+            },
+            {
+              "metrics": {
+                "rmse": 31277.5367
+              },
+              "n": 150,
+              "value": "(3617.0, 4494.0]"
+            },
+            {
+              "metrics": {
+                "rmse": 30029.9358
+              },
+              "n": 150,
+              "value": "(608.999, 1644.75]"
+            }
+          ],
+          "worst": {
+            "n": 150,
+            "score": 31277.5367,
+            "value": "(3617.0, 4494.0]"
+          }
+        },
+        {
+          "column": "neighborhood",
+          "metric": "rmse",
+          "overall": 29666.8616,
+          "segments": [
+            {
+              "metrics": {
+                "rmse": 29586.7429
+              },
+              "n": 173,
+              "value": "downtown"
+            },
+            {
+              "metrics": {
+                "rmse": 32454.2018
+              },
+              "n": 97,
+              "value": "rural"
+            },
+            {
+              "metrics": {
+                "rmse": 29184.2807
+              },
+              "n": 268,
+              "value": "suburbs"
+            },
+            {
+              "metrics": {
+                "rmse": 27298.9465
+              },
+              "n": 62,
+              "value": "waterfront"
+            }
+          ],
+          "worst": {
+            "n": 97,
+            "score": 32454.2018,
+            "value": "rural"
+          }
+        }
+      ],
+      "single_feature": [
+        {
+          "feature": "sqft",
+          "full_score": 29666.8616,
+          "ratio": 0.4781,
+          "solo_score": 62055.7111
+        },
+        {
+          "feature": "neighborhood",
+          "full_score": 29666.8616,
+          "ratio": 0.1633,
+          "solo_score": 181724.0152
+        },
+        {
+          "feature": "age_years",
+          "full_score": 29666.8616,
+          "ratio": 0.1594,
+          "solo_score": 186114.9894
+        }
+      ]
+    },
+    "feature_importances": [
+      {
+        "feature": "sqft",
+        "importance": 209869.4855,
+        "std": 2908.282
+      },
+      {
+        "feature": "neighborhood",
+        "importance": 39217.3142,
+        "std": 948.3418
+      },
+      {
+        "feature": "age_years",
+        "importance": 8242.3659,
+        "std": 923.6096
+      },
+      {
+        "feature": "bedrooms",
+        "importance": 2035.3572,
+        "std": 212.5861
+      },
+      {
+        "feature": "bathrooms",
+        "importance": 1129.5403,
+        "std": 180.17
+      },
+      {
+        "feature": "has_garage",
+        "importance": 635.5054,
+        "std": 139.5174
+      }
+    ],
+    "features_dropped": [
+      {
+        "name": "listing_id",
+        "reason": "excluded in plan"
+      }
+    ],
+    "features_used": [
+      "sqft",
+      "bedrooms",
+      "bathrooms",
+      "age_years",
+      "neighborhood",
+      "has_garage"
+    ],
+    "holdout": {
+      "baseline_description": "always predicting the training-set mean",
+      "baseline_metrics": {
+        "mae": 158852.0158,
+        "r2": -0.0022,
+        "rmse": 186023.0631
+      },
+      "metrics": {
+        "mae": 23193.5646,
+        "r2": 0.9745,
+        "rmse": 29666.8616
+      },
+      "residuals": {
+        "mean": -1441.5497,
+        "p10": -39392.1668,
+        "p90": 36420.4753,
+        "target_mean": 473570.5,
+        "target_std": 185814.3304
+      }
+    },
+    "methodology": {
+      "display_name": "Random Forest Regressor",
+      "id": "regression.random_forest"
+    },
+    "n_test": 600,
+    "n_train": 2400,
+    "primary_metric": "rmse",
+    "target_column": "price",
+    "task_family": "supervised",
+    "task_type": "regression"
+  }
+}

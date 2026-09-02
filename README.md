@@ -51,6 +51,29 @@ cd frontend && npm run dev
 Open http://localhost:3000, create a project, upload `samples/churn.csv`, and type
 "predict which customers will churn".
 
+## Tests
+
+```powershell
+venv\Scripts\pip install -r backend\requirements-dev.txt
+cd backend
+..\venv\Scripts\python.exe -m pytest          # everything
+..\venv\Scripts\python.exe -m pytest -m "not slow"   # skip the training-backed tests
+```
+
+Tests redirect `DATA_DIR` to a temp directory before importing anything from
+`app`, so they never touch your local `data/` or `app.db`. They make no network
+calls and need no running server.
+
+The suite's centre of gravity is `tests/test_golden.py`: it trains four fixed
+plans against the sample CSVs and compares the full results envelope to
+committed fixtures. Training is deterministic, so any diff is a real behavior
+change. When a change to the results is *intended*, regenerate and review the
+diff rather than editing the fixture by hand:
+
+```powershell
+..\venv\Scripts\python.exe -m pytest tests\test_golden.py --regen-golden
+```
+
 ## Accounts
 
 Signup is open and self-serve. There is **no self-serve password reset** — that

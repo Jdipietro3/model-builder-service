@@ -1,0 +1,6 @@
+# Test-only dependencies. Install alongside requirements.txt:
+#   venv/Scripts/python.exe -m pip install -r backend/requirements-dev.txt
+# Run the suite from the backend/ directory:
+#   venv/Scripts/python.exe -m pytest
+-r requirements.txt
+pytest>=8.0
