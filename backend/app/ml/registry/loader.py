@@ -8,6 +8,13 @@ Specs are validated on load against the typed ``MethodologySpec`` (pydantic v2),
 but ``load_registry()`` returns plain ``dict``s (via ``model_dump()``) because
 every downstream consumer indexes the spec as a mapping
 (``spec["model"]["class"]``, ``spec["metrics"][task_type]["supported"]``, ...).
+
+A spec's ``model`` dict may optionally carry a ``search_space`` (an
+Optuna-style search space consumed by later tuning phases — see
+``_validate_shapes`` for the accepted shape), and a spec may optionally
+declare a top-level ``feature_ops_allowed: list[str]`` naming which Phase 1
+recipe ops it accepts (``None``/absent means "no restriction"). Neither field
+is populated by any current spec; both are Phase 0 plumbing for later phases.
 """
 
 import importlib
@@ -47,11 +54,19 @@ class MethodologySpec(BaseModel):
     preprocessing: dict[str, Any]
     model: dict[str, Any]
     metrics: dict[str, Any]
+    # Names which Phase 1 recipe ops this methodology accepts (e.g. tree
+    # specs won't need `scale`). None (the default/absent) means "no
+    # restriction" — every op is allowed. Not populated by any spec yet.
+    feature_ops_allowed: list[str] | None = None
 
     @model_validator(mode="after")
     def _validate_shapes(self) -> "MethodologySpec":
         if "class" not in self.model:
             raise ValueError("model.class is required")
+
+        search_space = self.model.get("search_space")
+        if search_space is not None:
+            _validate_search_space(search_space)
 
         if self.data_shape == "tabular":
             # build_pipeline consumes numeric.impute / categorical.impute.
@@ -83,6 +98,48 @@ class MethodologySpec(BaseModel):
         # Label-free families (forecasting/clustering/anomaly) may use a flat
         # {default, supported} metrics block — no per-task_type keys required.
         return self
+
+
+def _validate_search_space(search_space: dict[str, Any]) -> None:
+    """Validate an Optuna-style search space (``model.search_space`` in a spec).
+
+    Each entry must be a dict with a ``type`` of ``int``, ``float``, or
+    ``categorical``:
+      - ``int``/``float``: numeric ``low``/``high`` with ``low <= high``, and
+        an optional bool ``log``.
+      - ``categorical``: a non-empty ``choices`` list.
+    Not populated by any spec yet — this is Phase 2 plumbing.
+    """
+    if not isinstance(search_space, dict):
+        raise ValueError(f"model.search_space must be a mapping, got {type(search_space).__name__}")
+    for param, entry in search_space.items():
+        if not isinstance(entry, dict):
+            raise ValueError(f"model.search_space.{param} must be a mapping")
+        ptype = entry.get("type")
+        if ptype not in ("int", "float", "categorical"):
+            raise ValueError(
+                f"model.search_space.{param}.type must be one of 'int', 'float', "
+                f"'categorical' (got {ptype!r})"
+            )
+        if ptype in ("int", "float"):
+            low, high = entry.get("low"), entry.get("high")
+            if not isinstance(low, (int, float)) or isinstance(low, bool):
+                raise ValueError(f"model.search_space.{param}.low must be numeric")
+            if not isinstance(high, (int, float)) or isinstance(high, bool):
+                raise ValueError(f"model.search_space.{param}.high must be numeric")
+            if low > high:
+                raise ValueError(
+                    f"model.search_space.{param}: low ({low}) must be <= high ({high})"
+                )
+            log = entry.get("log", False)
+            if not isinstance(log, bool):
+                raise ValueError(f"model.search_space.{param}.log must be a bool")
+        else:  # categorical
+            choices = entry.get("choices")
+            if not isinstance(choices, list) or not choices:
+                raise ValueError(
+                    f"model.search_space.{param}.choices must be a non-empty list"
+                )
 
 
 _module_available_cache: dict[str, bool] = {}
@@ -122,7 +179,10 @@ def load_registry() -> dict[str, dict[str, Any]]:
                 # Library missing but a sklearn fallback is declared: swap it in
                 # so the methodology slot still works.
                 fb = spec["model"]["fallback"]
-                spec["model"] = {"class": fb["class"], "params": fb.get("params", {}), "grid": fb.get("grid", {})}
+                new_model = {"class": fb["class"], "params": fb.get("params", {}), "grid": fb.get("grid", {})}
+                if "search_space" in fb:
+                    new_model["search_space"] = fb["search_space"]
+                spec["model"] = new_model
                 spec["display_name"] += " (sklearn fallback)"
             else:
                 # No fallback: the spec is unusable on this machine — drop it.

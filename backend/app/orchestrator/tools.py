@@ -170,26 +170,119 @@ class ToolSpec:
         }
 
 
+# JSON Schema keywords whose values are themselves schemas, so the walkers below
+# know where to recurse. Everything not listed here is literal data (`enum`,
+# `const`, `required`, ...) and is passed through untouched. This distinction
+# matters: `properties` is a *map of field name -> schema*, so a model with a
+# field literally named "title", "default" or "anyOf" would otherwise have that
+# field silently mangled or deleted by the cleanups.
+_SCHEMA_VALUE_KEYS = ("items", "additionalProperties", "not", "propertyNames", "contains")
+_SCHEMA_LIST_KEYS = ("anyOf", "oneOf", "allOf", "prefixItems")
+_SCHEMA_MAP_KEYS = ("properties", "patternProperties", "$defs", "definitions")
+
+
+def _walk_schema(node: Any, fn: Callable[[dict], dict]) -> Any:
+    """Apply `fn` to every schema node in `node`, bottom-up.
+
+    Recurses only through the keywords above, so field names inside
+    `properties` are never mistaken for schema keywords.
+    """
+    if not isinstance(node, dict):
+        return node
+    out = dict(node)
+    for key in _SCHEMA_VALUE_KEYS:
+        if isinstance(out.get(key), dict):
+            out[key] = _walk_schema(out[key], fn)
+    for key in _SCHEMA_LIST_KEYS:
+        if isinstance(out.get(key), list):
+            out[key] = [_walk_schema(b, fn) for b in out[key]]
+    for key in _SCHEMA_MAP_KEYS:
+        if isinstance(out.get(key), dict):
+            out[key] = {k: _walk_schema(v, fn) for k, v in out[key].items()}
+    return fn(out)
+
+
+def _inline_refs(node: Any, defs: dict[str, Any], chain: tuple[str, ...] = ()) -> Any:
+    """Recursively resolve `$ref` against `defs`, substituting the definition inline.
+
+    `chain` tracks the ref names currently being expanded on this path, so a
+    self-referential (or mutually-recursive) model raises a clear ValueError
+    instead of recursing until the stack overflows. No current model is
+    recursive; this guard is so a future one fails loudly at import time
+    rather than hanging or crashing obscurely.
+    """
+    if not isinstance(node, dict):
+        return node
+
+    ref = node.get("$ref")
+    if isinstance(ref, str):
+        name = ref.rsplit("/", 1)[-1]
+        if name in chain:
+            raise ValueError(
+                f"Recursive model in tool input schema: {' -> '.join((*chain, name))}. "
+                "Recursive/self-referential models can't be inlined into a flat tool schema."
+            )
+        if name not in defs:
+            raise ValueError(f"Unresolved $ref '{ref}': no matching entry in $defs")
+        resolved = _inline_refs(defs[name], defs, chain + (name,))
+        # A $ref sibling (e.g. pydantic's {"$ref": ..., "description": ...})
+        # carries extra keys that must survive, with the resolved def merged
+        # underneath so the sibling keys win on conflict. `resolved` is a fresh
+        # dict per call, so two refs to the same def never alias.
+        merged = dict(resolved)
+        merged.update({k: _inline_refs(v, defs, chain) for k, v in node.items() if k != "$ref"})
+        return merged
+
+    out = dict(node)
+    for key in _SCHEMA_VALUE_KEYS:
+        if isinstance(out.get(key), dict):
+            out[key] = _inline_refs(out[key], defs, chain)
+    for key in _SCHEMA_LIST_KEYS:
+        if isinstance(out.get(key), list):
+            out[key] = [_inline_refs(b, defs, chain) for b in out[key]]
+    for key in _SCHEMA_MAP_KEYS:
+        if isinstance(out.get(key), dict):
+            out[key] = {k: _inline_refs(v, defs, chain) for k, v in out[key].items()}
+    return out
+
+
+def _strip_node(node: dict) -> dict:
+    """The per-node cleanups: drop `title` (noise for an LLM) and `default`
+    (some providers read it as a value the model needn't supply), and collapse
+    Optional[X]'s `anyOf: [X, null]` down to X - optionality is already conveyed
+    by absence from `required`. `enum`, `description`, `type`, `items` and the
+    constraint keywords are left untouched."""
+    node.pop("title", None)
+    node.pop("default", None)
+    if "anyOf" in node:
+        branches = [b for b in node["anyOf"] if isinstance(b, dict) and b.get("type") != "null"]
+        if len(branches) == 1:
+            node.pop("anyOf")
+            node.update(branches[0])
+    return node
+
+
 def _clean_schema(schema: dict) -> dict:
     """Trim pydantic's JSON schema down to what LLM tool schemas expect.
 
-    Mutates and returns its argument; callers pass a fresh model_json_schema().
+    Builds and returns a new dict; the argument (a fresh model_json_schema())
+    is not mutated.
+
+    Nested models make pydantic emit `$defs`/`$ref` rather than an inline
+    schema. Anthropic handles `$ref` poorly and smaller open models handle it
+    worse, and every provider adapter here (see
+    app/orchestrator/providers/anthropic_provider.py and openai_provider.py)
+    passes the schema straight through to the model with no ref-resolution of
+    its own — so instead of asserting tool inputs stay flat, we recursively
+    inline every `$ref` against `$defs` (deep-copying each substitution so two
+    refs to the same def don't alias) and then drop `$defs` entirely. The
+    title/default/anyOf-optional cleanups are then applied recursively at
+    every level of the resulting tree, not just top-level properties.
     """
-    # Nested models would emit $defs/$ref, which Anthropic handles poorly and
-    # smaller open models handle worse. Keep tool inputs flat.
-    assert "$defs" not in schema, f"nested models not supported in tool inputs: {schema}"
-    schema.pop("title", None)
-    for prop in schema.get("properties", {}).values():
-        prop.pop("title", None)
-        # Optional[X] emits anyOf [X, null]; collapse to X — optionality is
-        # already conveyed by absence from `required`.
-        if "anyOf" in prop:
-            branches = [b for b in prop["anyOf"] if b.get("type") != "null"]
-            if len(branches) == 1:
-                prop.pop("anyOf")
-                prop.update(branches[0])
-        prop.pop("default", None)
-    return schema
+    defs = schema.get("$defs", {})
+    inlined = _inline_refs(schema, defs)
+    inlined.pop("$defs", None)
+    return _walk_schema(inlined, _strip_node)
 
 
 _REGISTRY: dict[str, ToolSpec] = {}  # insertion-ordered -> stable TOOLS order
