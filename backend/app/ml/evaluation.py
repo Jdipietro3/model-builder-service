@@ -40,6 +40,27 @@ CALIBRATION_BINS = 10
 TOP_LEAKAGE_FEATURES = 3
 
 
+def _positive_class_proba(y_proba: np.ndarray | None) -> np.ndarray:
+    """The positive-class column of a binary `predict_proba` output.
+
+    Validated in one place so a malformed y_proba fails the way every other
+    "this metric doesn't apply here" case does — as a ValueError caught by
+    compute_metrics, dropping the one metric — rather than as an IndexError
+    that escapes and takes the whole metrics dict down with it. No estimator
+    in the current registry can produce a bad shape here, but hand-rolled
+    predict_proba implementations (the Phase 6 neural-net estimators) can.
+    """
+    if y_proba is None:
+        raise ValueError("metric requires y_proba, none was supplied")
+    arr = np.asarray(y_proba)
+    if arr.ndim != 2 or arr.shape[1] < 2:
+        raise ValueError(
+            "metric requires a two-column (n_samples, n_classes) y_proba, "
+            f"got shape {arr.shape}"
+        )
+    return arr[:, 1]
+
+
 def compute_metrics(
     metric_names: list[str],
     y_true: np.ndarray,
@@ -50,9 +71,9 @@ def compute_metrics(
     for name in metric_names:
         try:
             if name == "roc_auc":
-                out[name] = roc_auc_score(y_true, y_proba[:, 1])
+                out[name] = roc_auc_score(y_true, _positive_class_proba(y_proba))
             elif name == "pr_auc":
-                out[name] = average_precision_score(y_true, y_proba[:, 1])
+                out[name] = average_precision_score(y_true, _positive_class_proba(y_proba))
             elif name == "f1":
                 out[name] = f1_score(y_true, y_pred)
             elif name == "f1_macro":
@@ -68,8 +89,13 @@ def compute_metrics(
             elif name == "rmse":
                 out[name] = root_mean_squared_error(y_true, y_pred)
         except (ValueError, TypeError):
-            continue  # metric undefined for this data (e.g. single-class fold)
-    return {k: round(float(v), 4) for k, v in out.items()}
+            continue  # metric undefined for this data (e.g. roc_auc with no y_proba)
+    # sklearn >= 1.3 prefers returning nan over raising for some undefined
+    # cases (roc_auc_score on a single-class fold, which segment_metrics hits
+    # routinely). nan survives round(float(...)) and json.dumps emits a bare
+    # NaN, which is invalid JSON and breaks the frontend's parse — so treat a
+    # non-finite score as "undefined", same as the raising cases above.
+    return {k: round(float(v), 4) for k, v in out.items() if np.isfinite(v)}
 
 
 def evaluate_holdout(

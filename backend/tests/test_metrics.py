@@ -7,6 +7,9 @@ transposed confusion matrix) would actually be caught instead of the test
 just re-deriving the bug.
 """
 
+import json
+import warnings
+
 import numpy as np
 import pytest
 
@@ -83,27 +86,55 @@ def test_regression_metrics_match_hand_computed_values():
     assert out == {"r2": 0.9486, "mae": 0.5, "rmse": 0.6124}
 
 
-def test_roc_auc_and_pr_auc_require_two_column_proba(clf_fixture):
-    """roc_auc/pr_auc index y_proba[:, 1] — a single-column proba array is out
-    of bounds on that index and raises IndexError, which compute_metrics does
-    NOT catch (it only catches ValueError/TypeError). This pins that a
-    two-column proba is a hard requirement, not a soft one silently worked
-    around."""
+@pytest.mark.parametrize(
+    "bad_proba",
+    [
+        pytest.param(lambda p: p[:, [1]], id="single_column_2d"),
+        pytest.param(lambda p: p[:, 1], id="one_dimensional"),
+    ],
+)
+def test_malformed_proba_drops_only_the_proba_metrics(clf_fixture, bad_proba):
+    """roc_auc/pr_auc need a two-column (n_samples, n_classes) proba. A
+    malformed one is validated up front and reported as ValueError, which
+    compute_metrics catches — so those two metrics are dropped and every other
+    requested metric still comes back. Previously the raw `y_proba[:, 1]`
+    raised IndexError, which is not in the caught tuple, so one bad proba took
+    down the whole call and lost accuracy/f1 along with it."""
     y_true, y_pred, y_proba = clf_fixture
-    single_col = y_proba[:, [1]]  # shape (n, 1) instead of (n, 2)
-    with pytest.raises(IndexError):
-        compute_metrics(["roc_auc"], y_true, y_pred, single_col)
+    out = compute_metrics(
+        ["roc_auc", "pr_auc", "accuracy", "f1"], y_true, y_pred, bad_proba(y_proba)
+    )
+    assert out == {"accuracy": 0.75, "f1": 0.8}
+
+
+def test_nan_metric_is_omitted_not_serialized(clf_fixture):
+    """sklearn 1.9's roc_auc_score returns nan (with an UndefinedMetricWarning)
+    for a single-class y_true instead of raising ValueError, so the "metric
+    undefined for this data" case no longer reaches the except clause. nan
+    survives round(float(...)) untouched and json.dumps writes a bare `NaN`,
+    which is invalid JSON and breaks the frontend's parse of the results
+    envelope — segment_metrics hits single-class slices routinely. Pin that a
+    non-finite score is dropped like any other undefined metric."""
+    _, y_pred, y_proba = clf_fixture
+    single_class = np.zeros(8, dtype=int)  # every row the same class
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # UndefinedMetricWarning is expected here
+        out = compute_metrics(["roc_auc", "accuracy"], single_class, y_pred, y_proba)
+
+    assert "roc_auc" not in out
+    # pred has 3 of 8 rows equal to 0 (idx 0, 2, 4) -> accuracy = 3/8 = 0.375
+    assert out == {"accuracy": 0.375}
+    assert json.dumps(out) == '{"accuracy": 0.375}'  # no bare NaN
 
 
 def test_metric_needing_proba_is_omitted_not_raised_when_proba_missing():
     """A caller can ask for a proba-based metric without supplying y_proba
-    (e.g. a model with no predict_proba). `y_proba[:, 1]` on None raises
-    TypeError, which IS in compute_metrics' except clause, so the metric is
-    silently dropped from the result instead of blowing up the whole call —
-    this is the same "undefined for this data" fallback the docstring
-    describes for a single-class fold. Do not let a refactor turn this back
-    into a raise: the caller (evaluate_holdout et al.) relies on partial
-    results surviving one bad metric."""
+    (e.g. a model with no predict_proba). That is rejected as a ValueError,
+    which IS in compute_metrics' except clause, so the metric is silently
+    dropped from the result instead of blowing up the whole call. Do not let a
+    refactor turn this back into a raise: the caller (evaluate_holdout et al.)
+    relies on partial results surviving one bad metric."""
     y_true = np.array([0, 1, 1])
     y_pred = np.array([0, 1, 0])
     out = compute_metrics(["roc_auc", "accuracy"], y_true, y_pred, y_proba=None)
