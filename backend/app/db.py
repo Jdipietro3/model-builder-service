@@ -35,6 +35,7 @@ def _ensure_columns(engine) -> None:
         ],
         "runs": [
             ("parent_run_id", "VARCHAR(32)"),
+            ("revision_of_run_id", "VARCHAR(32)"),
             ("tournament_id", "VARCHAR(32)"),
             ("tournament_role", "VARCHAR(20)"),
             ("tournament_interpreted", "BOOLEAN NOT NULL DEFAULT 0"),

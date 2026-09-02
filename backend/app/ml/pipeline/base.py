@@ -62,6 +62,25 @@ Forecasting envelope (``task_family == "forecasting"``, ``data_shape == "timeser
 All timestamps are ISO strings and all series are plain lists of rounded floats, so the
 whole dict is JSON-serialisable (it is stored in a JSON column). The frontend keys off
 ``task_family`` to decide which detail keys to expect.
+
+Two more spine keys are reserved for later phases and are optional on every family's
+envelope — absent on any run trained before that phase landed, so the frontend must
+treat both as nullable:
+
+    {
+        ...
+        "preprocessing_applied": {          # Phase 1 (recipe-based preprocessing)
+            "steps": [{"op", "columns", "params", "description"}],  # resolved recipe as fitted
+            "n_features_in": <int>, "n_features_out": <int>,
+            "derived_columns": [...], "dropped_columns": [...],
+        },
+        "tuning": {                         # Phase 2 (Optuna-based tuning)
+            "strategy": "none" | "grid" | "random" | "bayesian",
+            "n_trials": <int>, "best_params": {...},
+            "trials": [{"params", "score", "duration_s"}],
+            "importance": {...},            # param -> relative importance, if computed
+        },
+    }
 """
 
 from dataclasses import dataclass, field

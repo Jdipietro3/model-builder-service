@@ -148,6 +148,38 @@ _FAMILY_VALIDATORS: dict[str, FamilyValidator] = {
 }
 
 
+def _validate_new_fields(plan: Plan, profile: dict[str, Any], errors: list[str]) -> None:
+    """Phase 0 shape checks for the recipe/tuning/hyperparameters/revision fields.
+    These fields aren't consumed by any runner yet, so only validate what's
+    genuinely wrong now (unknown columns, non-flat hyperparameters); the deeper
+    checks (search spaces, op-specific column requirements) land with the phases
+    that actually interpret these fields.
+    """
+    if plan.preprocessing:
+        column_names = {c["name"] for c in profile["columns"]}
+        for step in plan.preprocessing:
+            if not step.columns:
+                continue  # empty columns means "applies to the auto-selected group"
+            unknown = [c for c in step.columns if c not in column_names]
+            if unknown:
+                errors.append(
+                    f"Preprocessing step '{step.op}' references columns not in dataset: "
+                    f"{', '.join(unknown)}"
+                )
+
+    if plan.hyperparameters is not None:
+        for key, value in plan.hyperparameters.items():
+            values = value if isinstance(value, list) else [value]
+            if any(isinstance(v, dict) for v in values):
+                errors.append(
+                    f"hyperparameters['{key}'] must be a scalar or list of scalars, not a "
+                    "nested dict"
+                )
+
+    if plan.revision_of_run_id is not None and not plan.revision_of_run_id.strip():
+        errors.append("revision_of_run_id must be a non-empty string when set")
+
+
 def validate_plan(
     plan_data: dict[str, Any], profile: dict[str, Any]
 ) -> tuple[dict | None, list[str]]:
@@ -185,6 +217,8 @@ def validate_plan(
         errors.append(f"Unknown task_family '{plan.task_family}'")
     else:
         validator(plan, spec, profile, errors)
+
+    _validate_new_fields(plan, profile, errors)
 
     if errors:
         return None, errors

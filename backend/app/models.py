@@ -109,6 +109,9 @@ class Run(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Set only on retrains: the run this one was retrained from.
     parent_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Set only when this run's plan is an LLM-proposed revision of an earlier run's
+    # plan on the same data (vs. parent_run_id, which means "retrained on newer data").
+    revision_of_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # Set only on tournament runs: candidates + the auto-built ensemble share a
     # tournament_id; tournament_role distinguishes "candidate" vs "ensemble".
     tournament_id: Mapped[str | None] = mapped_column(String(32), nullable=True)

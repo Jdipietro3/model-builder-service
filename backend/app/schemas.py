@@ -114,6 +114,28 @@ class ValidationSpec(BaseModel):
     n_splits: int = Field(default=5, ge=2, le=10)
 
 
+class RecipeStep(BaseModel):
+    """One declarative preprocessing/feature-engineering step. ``op`` is a plain
+    str in Phase 0 — the curated op enum lands with ml/recipe.py in Phase 1, once
+    there's an actual set of ops to enumerate."""
+
+    op: str
+    columns: list[str] = Field(default_factory=list)
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class TuningSpec(BaseModel):
+    """How a run's hyperparameters are chosen. Defaults reproduce today's
+    behavior exactly (GridSearchCV over the spec's grid) so an absent/default
+    `tuning` on a plan changes nothing until Phase 2 wires up random/bayesian
+    search."""
+
+    strategy: Literal["none", "grid", "random", "bayesian"] = "grid"
+    n_trials: int = Field(default=20, ge=1, le=500)
+    time_budget_s: int | None = Field(default=None, ge=10, le=7200)
+    cv_splits: int | None = Field(default=None, ge=2, le=10)
+
+
 class PlanWarning(BaseModel):
     """Non-blocking pre-approval warning surfaced on a proposed plan (diagnose_plan
     in ml/plans.py). Purely informational — flagged plans stay approvable."""
@@ -146,6 +168,15 @@ class Plan(BaseModel):
     # missingness, near-constant features). None/absent for plans proposed before
     # this field existed or when diagnose_plan found nothing to flag.
     warnings: list[PlanWarning] | None = None
+    # Absent means "use the default recipe derived from the profile + spec" (Phase 1).
+    preprocessing: list[RecipeStep] | None = None
+    # Pinned model params, applied after/instead of search.
+    hyperparameters: dict[str, Any] | None = None
+    # Absent means the spec's grid — today's behavior.
+    tuning: TuningSpec | None = None
+    # Set when this plan is an LLM-proposed revision of an earlier run's plan on the
+    # same data (distinct from Run.parent_run_id, which means "retrained on newer data").
+    revision_of_run_id: str | None = None
 
 
 class RunOut(BaseModel):
@@ -158,6 +189,7 @@ class RunOut(BaseModel):
     results: dict[str, Any] | None = None
     error: str | None = None
     parent_run_id: str | None = None
+    revision_of_run_id: str | None = None
     tournament_id: str | None = None
     tournament_role: str | None = None
     created_at: datetime
