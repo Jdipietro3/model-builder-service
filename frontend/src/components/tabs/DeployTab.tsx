@@ -12,11 +12,13 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { api, API_BASE, CreatedDeploymentKey, Deployment, DeploymentKey, Run } from "@/lib/api";
+import { api, API_BASE, CreatedDeploymentKey, Deployment, DeploymentKey, Methodology, Run } from "@/lib/api";
 import { useProject } from "@/lib/project-context";
 import { extractErrorDetail } from "@/lib/errors";
+import { runLabel } from "@/lib/run-label";
 import DeploymentCard from "@/components/cards/DeploymentCard";
 import EmptyTab from "@/components/tabs/EmptyTab";
+import Disclosure from "@/components/Disclosure";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -105,53 +107,91 @@ function EndpointPanel({ deployment }: { deployment: Deployment }) {
   const authValue = justCreated ? justCreated.key : "mb_...";
   const curl = `curl -X POST ${url} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${authValue}" \\\n  -d '${JSON.stringify({ records: [deployment.contract.example_record] })}'`;
 
+  // justCreated holds the only copy of a full API secret the backend will ever
+  // return. If the disclosure is forced open here and the user later collapses
+  // it by hand, that's fine — they've seen and (presumably) copied it. But it
+  // must never start collapsed while a secret is waiting to be read, so the
+  // open state is controlled and re-synced whenever justCreated changes.
+  const [keysOpen, setKeysOpen] = useState(false);
+  useEffect(() => {
+    if (justCreated) setKeysOpen(true);
+  }, [justCreated]);
+
+  const keysSummary =
+    keys === null && !keysError ? "loading…" : keys ? `${keys.length} key${keys.length === 1 ? "" : "s"}` : "none yet";
+
   return (
     <section className="space-y-4">
-      <h3 className="border-b border-zinc-800 pb-2 text-title font-medium text-zinc-100">
-        Calling this endpoint
-      </h3>
-
-      <p className="measure text-label leading-relaxed text-zinc-400">
-        Requests require an API key. Create one below and send it as{" "}
-        <code className="font-mono text-xs text-zinc-300">Authorization: Bearer &lt;key&gt;</code>.
-      </p>
-
-      <dl className="space-y-2 text-label">
-        <div>
-          <dt className="mb-1 uppercase tracking-wide text-zinc-400">Endpoint</dt>
-          <dd className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded bg-zinc-950 px-2 py-1 font-mono text-zinc-300">
-              POST {url}
-            </code>
-            <CopyButton text={url} />
-          </dd>
-        </div>
-        <div>
-          <dt className="mb-1 uppercase tracking-wide text-zinc-400">
-            Request body ({deployment.contract.feature_columns.length} feature
-            {deployment.contract.feature_columns.length === 1 ? "" : "s"})
-          </dt>
-          <dd>
-            <pre className="overflow-x-auto rounded bg-zinc-950 p-2 font-mono text-xs leading-relaxed text-zinc-300">
-              {body}
-            </pre>
-          </dd>
-        </div>
-      </dl>
-
-      <div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-label uppercase tracking-wide text-zinc-400">curl</span>
-          <CopyButton text={curl} />
-        </div>
-        <pre className="mt-1 overflow-x-auto rounded bg-zinc-950 p-2 font-mono text-xs leading-relaxed text-zinc-300">
-          {curl}
-        </pre>
+      <div className="border-b border-zinc-800 pb-4">
+        <h3 className="mb-2 text-title font-medium text-zinc-100">Using this endpoint</h3>
+        <p className="measure mb-3 text-label leading-relaxed text-zinc-400">
+          A prediction endpoint takes one record — shaped like the rows this model trained on —
+          and returns the model&rsquo;s answer for that record. Nothing more happens on the way:
+          no lookup, no rule engine, just the model applied to what you sent. What the returned
+          value means (a class, a probability, a forecasted number) depends on the task type, and
+          how much to trust it depends on the metrics on the Metrics tab — the endpoint itself
+          can&rsquo;t tell you that.
+        </p>
+        <ol className="measure list-decimal space-y-1 pl-5 text-label leading-relaxed text-zinc-300">
+          <li>Create an API key below.</li>
+          <li>Copy it now — the full key is shown only once.</li>
+          <li>Send a POST request to the endpoint with one record in the JSON body.</li>
+          <li>Read the prediction back out of the response.</li>
+        </ol>
       </div>
 
-      <div className="space-y-2 border-t border-zinc-800 pt-4">
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="text-label uppercase tracking-wide text-zinc-400">API keys</h4>
+      <Disclosure tone="title" summary="Calling this endpoint">
+        <div className="space-y-4">
+          <p className="measure text-label leading-relaxed text-zinc-400">
+            Requests require an API key. Create one below and send it as{" "}
+            <code className="font-mono text-xs text-zinc-300">Authorization: Bearer &lt;key&gt;</code>.
+          </p>
+
+          <dl className="space-y-2 text-label">
+            <div>
+              <dt className="mb-1 uppercase tracking-wide text-zinc-400">Endpoint</dt>
+              <dd className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded bg-zinc-950 px-2 py-1 font-mono text-zinc-300">
+                  POST {url}
+                </code>
+                <CopyButton text={url} />
+              </dd>
+            </div>
+            <div>
+              <dt className="mb-1 uppercase tracking-wide text-zinc-400">
+                Request body ({deployment.contract.feature_columns.length} feature
+                {deployment.contract.feature_columns.length === 1 ? "" : "s"})
+              </dt>
+              <dd>
+                <pre className="overflow-x-auto rounded bg-zinc-950 p-2 font-mono text-xs leading-relaxed text-zinc-300">
+                  {body}
+                </pre>
+              </dd>
+            </div>
+          </dl>
+
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-label uppercase tracking-wide text-zinc-400">curl</span>
+              <CopyButton text={curl} />
+            </div>
+            <pre className="mt-1 overflow-x-auto rounded bg-zinc-950 p-2 font-mono text-xs leading-relaxed text-zinc-300">
+              {curl}
+            </pre>
+          </div>
+        </div>
+      </Disclosure>
+
+      <Disclosure
+        tone="label"
+        summary="API keys"
+        meta={keysSummary}
+        open={keysOpen}
+        onOpenChange={setKeysOpen}
+        className="border-t border-zinc-800 pt-4"
+      >
+        <div className="space-y-2">
+        <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={handleCreate}
@@ -215,22 +255,104 @@ function EndpointPanel({ deployment }: { deployment: Deployment }) {
             ))}
           </ul>
         )}
-      </div>
+        </div>
+      </Disclosure>
     </section>
   );
 }
 
+/**
+ * The deploy control shown when the project has no deployment yet. One
+ * primary-per-view: a lone deployable run gets a single button (no picker for
+ * a choice of one), more than one gets a select alongside it. Once a
+ * deployment exists this control disappears for good — promoting a different
+ * run onto it is DeploymentCard's job, not a second "create deployment" path.
+ */
+function DeployControl({
+  runs,
+  methodologies,
+  onDeploy,
+}: {
+  runs: Run[];
+  methodologies: Methodology[];
+  onDeploy: (runId: string) => Promise<void>;
+}) {
+  const sorted = [...runs].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+  const [selectedId, setSelectedId] = useState(sorted[0]?.id ?? "");
+  const [deploying, setDeploying] = useState(false);
+  const selected = sorted.find((r) => r.id === selectedId) ?? sorted[0];
+
+  async function handleClick() {
+    if (!selected) return;
+    setDeploying(true);
+    try {
+      await onDeploy(selected.id);
+    } finally {
+      setDeploying(false);
+    }
+  }
+
+  const buttonLabel = deploying ? "Deploying…" : `Deploy ${runLabel(selected, methodologies)}`;
+  const button = (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={deploying || !selected}
+      className="focus-ring rounded-lg bg-accent px-4 py-2 text-body font-medium text-accent-ink transition-colors hover:bg-accent-bright disabled:opacity-40"
+    >
+      {buttonLabel}
+    </button>
+  );
+
+  if (sorted.length === 1) return button;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <select
+        value={selectedId}
+        onChange={(e) => setSelectedId(e.target.value)}
+        className="focus-ring-panel rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-label text-zinc-200 focus:border-accent-edge"
+      >
+        {sorted.map((r) => (
+          <option key={r.id} value={r.id}>
+            {runLabel(r, methodologies)}
+          </option>
+        ))}
+      </select>
+      {button}
+    </div>
+  );
+}
+
 export default function DeployTab() {
-  const { runs, runStates, deployments, handlePromote, handleSetDeploymentStatus } = useProject();
+  const { runs, runStates, methodologies, deployments, handleDeploy, handlePromote, handleSetDeploymentStatus } =
+    useProject();
 
   if (deployments.length === 0) {
+    // Mirrors ModelTab's canDeploy predicate exactly — forecasting runs don't
+    // fit the single-record predict contract, so they're never offered here.
+    const deployable = runs
+      .map((r): Run => ({ ...r, results: runStates[r.id]?.results ?? r.results }))
+      .filter(
+        (r) =>
+          (runStates[r.id]?.status ?? r.status) === "completed" &&
+          r.plan.task_type !== "forecasting" &&
+          r.results != null,
+      );
+
     return (
       <section className="space-y-3">
         <h2 className="text-headline font-semibold text-zinc-100">Deploy</h2>
-        <EmptyTab
-          title="Nothing deployed yet"
-          body="Once a run completes, use Deploy this model on the Model tab. You get a prediction endpoint backed by that exact model."
-        />
+        {deployable.length === 0 ? (
+          <EmptyTab
+            title="Nothing deployed yet"
+            body="Once a run finishes training, deploy it here to get a live prediction endpoint."
+          />
+        ) : (
+          <DeployControl runs={deployable} methodologies={methodologies} onDeploy={handleDeploy} />
+        )}
       </section>
     );
   }
@@ -258,7 +380,7 @@ export default function DeployTab() {
           );
 
         return (
-          <div key={d.id} className="space-y-4">
+          <div key={d.id} className="space-y-5 border-t border-zinc-800 pt-5 first:border-0 first:pt-0">
             <DeploymentCard
               deployment={d}
               currentRun={resolvedCurrentRun}

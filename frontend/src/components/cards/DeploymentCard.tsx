@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, Deployment, Dist, PredictResponse, Run, ServingStats } from "@/lib/api";
 import { LOWER_BETTER, METRIC_LABELS, fmt } from "./ReportCard";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import Disclosure from "@/components/Disclosure";
 
 // Sourced from the shared chart tokens in globals.css — one source of truth,
 // same hues ReportCard/PredictionCard/ComparisonCard draw from.
@@ -37,11 +38,11 @@ function DistComparison({ served, training }: { served: Dist | null; training: D
       <div className="grid grid-cols-3 gap-2">
         {(["mean", "min", "max"] as const).map((k) => (
           <div key={k} className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
-            <div className="text-xs text-zinc-400">{k}</div>
-            <div className="font-mono text-lg font-semibold text-accent-bright">
+            <div className="text-label text-zinc-400">{k}</div>
+            <div className="font-mono text-title font-semibold text-accent-bright">
               {s ? fmt(s[k]) : <span className="text-zinc-400">—</span>}
             </div>
-            <div className="mt-1 text-xs text-zinc-400">training {fmt(training[k])}</div>
+            <div className="mt-1 text-label text-zinc-400">training {fmt(training[k])}</div>
           </div>
         ))}
       </div>
@@ -67,7 +68,7 @@ function DistComparison({ served, training }: { served: Dist | null; training: D
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-right text-xs text-zinc-400">served</span>
+                <span className="w-14 shrink-0 text-right text-label text-zinc-400">served</span>
                 <div className="flex flex-1 items-center gap-2">
                   <div
                     className="h-3 rounded-r"
@@ -77,13 +78,13 @@ function DistComparison({ served, training }: { served: Dist | null; training: D
                       background: SERVED_HUE,
                     }}
                   />
-                  <span className="text-xs text-zinc-400">
+                  <span className="text-label text-zinc-400">
                     {servedPct !== null ? `${(servedPct * 100).toFixed(1)}%` : "no data yet"}
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-right text-xs text-zinc-400">training</span>
+                <span className="w-14 shrink-0 text-right text-label text-zinc-400">training</span>
                 <div className="flex flex-1 items-center gap-2">
                   <div
                     className="h-3 rounded-r"
@@ -93,7 +94,7 @@ function DistComparison({ served, training }: { served: Dist | null; training: D
                       background: TRAINING_HUE,
                     }}
                   />
-                  <span className="text-xs text-zinc-400">{(trainPct * 100).toFixed(1)}%</span>
+                  <span className="text-label text-zinc-400">{(trainPct * 100).toFixed(1)}%</span>
                 </div>
               </div>
             </div>
@@ -124,47 +125,47 @@ function StatsPanel({ deploymentId }: { deploymentId: string }) {
   }, [deploymentId]);
 
   if (error) {
-    return <p className="text-xs text-alarm">Could not load serving stats: {error}</p>;
+    return <p className="text-label text-alarm">Could not load serving stats: {error}</p>;
   }
   if (!stats) {
-    return <p className="text-xs text-zinc-400">Loading serving stats…</p>;
+    return <p className="text-label text-zinc-400">Loading serving stats…</p>;
   }
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
-          <div className="text-xs text-zinc-400">Requests</div>
-          <div className="font-mono text-lg font-semibold text-accent-bright">{stats.n_requests.toLocaleString()}</div>
+          <div className="text-label text-zinc-400">Requests</div>
+          <div className="font-mono text-title font-semibold text-accent-bright">{stats.n_requests.toLocaleString()}</div>
         </div>
         <div className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
-          <div className="text-xs text-zinc-400">Rows scored</div>
-          <div className="font-mono text-lg font-semibold text-accent-bright">{stats.n_rows.toLocaleString()}</div>
+          <div className="text-label text-zinc-400">Rows scored</div>
+          <div className="font-mono text-title font-semibold text-accent-bright">{stats.n_rows.toLocaleString()}</div>
         </div>
         <div className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
-          <div className="text-xs text-zinc-400">Avg latency</div>
-          <div className="font-mono text-lg font-semibold text-accent-bright">{fmt(stats.avg_latency_ms)} ms</div>
+          <div className="text-label text-zinc-400">Avg latency</div>
+          <div className="font-mono text-title font-semibold text-accent-bright">{fmt(stats.avg_latency_ms)} ms</div>
         </div>
       </div>
 
       {stats.n_requests === 0 ? (
-        <p className="text-xs text-zinc-400">
+        <p className="text-label text-zinc-400">
           No prediction requests yet — run the live tester below to populate serving stats.
         </p>
       ) : (
-        <div>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-              Served vs. training distribution
-            </h4>
-            <span className="text-xs text-zinc-400">
-              basic drift indicator (population comparison, not a statistical test)
-            </span>
-          </div>
+        <Disclosure
+          tone="label"
+          summary="Served vs. training distribution"
+          meta="drift indicator"
+        >
+          <p className="measure mb-2 text-label text-zinc-400">
+            Population comparison, not a statistical test — a quick eyeball check for whether
+            live traffic looks like the data this model trained on.
+          </p>
           <DistComparison served={stats.served_distribution} training={stats.training_distribution} />
-        </div>
+        </Disclosure>
       )}
-      {stats.drift_note && <p className="measure text-xs text-zinc-400">{stats.drift_note}</p>}
+      {stats.drift_note && <p className="measure text-label text-zinc-400">{stats.drift_note}</p>}
     </div>
   );
 }
@@ -216,15 +217,9 @@ function PromoteSection({
 
   return (
     <div className="border-t border-zinc-800 pt-4">
-      <details className="group">
-        <summary className="focus-ring-panel flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg py-1 text-xs font-medium uppercase tracking-wide text-zinc-400 transition-colors hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
-          <span>Switch serving model</span>
-          <span aria-hidden className="text-zinc-400 transition-transform group-open:rotate-180">
-            ▾
-          </span>
-        </summary>
-        <div className="space-y-2.5 pt-3">
-          <p className="measure text-xs text-zinc-400">
+      <Disclosure tone="label" summary="Switch serving model">
+        <div className="space-y-2.5">
+          <p className="measure text-label text-zinc-400">
             Point this deployment at a different completed run — not the one you&rsquo;re currently
             viewing. To serve the run you&rsquo;re looking at now, use the promote button on that run
             instead.
@@ -232,7 +227,7 @@ function PromoteSection({
           <select
             value={selectedRunId}
             onChange={(e) => setSelectedRunId(e.target.value)}
-            className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-300 focus:border-accent-edge"
+            className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-body text-zinc-300 focus:border-accent-edge"
           >
             <option value="">Select a completed run…</option>
             {candidates.map((r) => {
@@ -247,13 +242,13 @@ function PromoteSection({
           </select>
 
           {m && currentValue !== undefined && newValue !== undefined && (
-            <div className="text-xs" style={{ color: improved ? GOOD : BAD }}>
+            <div className="text-label" style={{ color: improved ? GOOD : BAD }}>
               {METRIC_LABELS[m] ?? m}: {fmt(currentValue)} → {fmt(newValue)} {improved ? "▲" : "▼"}
             </div>
           )}
 
           {error && (
-            <div className="rounded-lg bg-alarm-wash px-3 py-2 text-xs text-alarm">
+            <div className="rounded-lg bg-alarm-wash px-3 py-2 text-label text-alarm">
               {error}
             </div>
           )}
@@ -261,12 +256,12 @@ function PromoteSection({
           <button
             onClick={() => setConfirmOpen(true)}
             disabled={!selectedRunId || busy}
-            className="focus-ring-panel rounded-lg px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-accent disabled:opacity-40"
+            className="focus-ring-panel rounded-lg px-4 py-2 text-body font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-accent disabled:opacity-40"
           >
             {busy ? "Switching…" : "Switch"}
           </button>
         </div>
-      </details>
+      </Disclosure>
 
       <ConfirmDialog
         open={confirmOpen}
@@ -343,22 +338,22 @@ function LiveTester({
         <button
           onClick={run}
           disabled={busy || !active}
-          className="focus-ring-panel rounded-lg px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-accent disabled:opacity-40"
+          className="focus-ring-panel rounded-lg px-4 py-2 text-body font-medium text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-accent disabled:opacity-40"
         >
           {busy ? "Running…" : "Run prediction"}
         </button>
         {!active && (
-          <span className="text-xs text-zinc-400">Deployment is stopped — enable it to run predictions.</span>
+          <span className="text-label text-zinc-400">Deployment is stopped — enable it to run predictions.</span>
         )}
       </div>
       {error && (
-        <div className="rounded-lg bg-alarm-wash px-3 py-2 text-xs text-alarm">
+        <div className="rounded-lg bg-alarm-wash px-3 py-2 text-label text-alarm">
           {error}
         </div>
       )}
       {result && (
         <div className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
-          <h4 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
+          <h4 className="mb-1.5 text-label font-medium uppercase tracking-wide text-zinc-400">
             Response
           </h4>
           <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs text-zinc-300">
@@ -410,38 +405,40 @@ export default function DeploymentCard({
     }
   }
 
+  const featureCount = contract.feature_columns.length;
+
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-4 py-3">
+    <div className="space-y-5">
+      {/* Identity and live status — always visible, never behind a click. This
+          is what someone opens the Deploy tab to check: what's serving, is it
+          running, which version, and the control to stop/enable it. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded bg-info-wash px-2 py-0.5 text-xs font-medium text-info">
-              DEPLOYMENT
-            </span>
-            <span className="text-sm font-medium text-zinc-100">{servingLabel}</span>
+            <span className="text-title font-medium text-zinc-100">{servingLabel}</span>
             <span
-              className={`rounded px-2 py-0.5 text-xs font-medium ${
+              className={`rounded px-2 py-0.5 text-label font-medium ${
                 isActive ? "bg-accent-wash text-accent" : "bg-zinc-800 text-zinc-400"
               }`}
             >
               {isActive ? "active" : "stopped"}
             </span>
-            <span className="text-xs text-zinc-400">v{deployment.version}</span>
+            <span className="text-label text-zinc-400">v{deployment.version}</span>
             {isActive && (
-              <span className="flex items-center gap-1 text-xs font-medium text-accent">
+              <span className="flex items-center gap-1 text-label font-medium text-accent">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                 LIVE
               </span>
             )}
           </div>
           {showStoredName && (
-            <span className="text-xs text-zinc-400">deployment name: {deployment.name}</span>
+            <span className="text-label text-zinc-400">deployment name: {deployment.name}</span>
           )}
         </div>
         <button
           onClick={toggleStatus}
           disabled={toggling}
-          className={`focus-ring-panel rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${
+          className={`focus-ring-panel rounded-lg px-3 py-1.5 text-label font-medium transition-colors disabled:opacity-40 ${
             isActive
               ? "text-zinc-300 hover:bg-zinc-800 hover:text-alarm"
               : "text-zinc-300 hover:bg-zinc-800 hover:text-accent"
@@ -451,13 +448,14 @@ export default function DeploymentCard({
         </button>
       </div>
 
-      <div className="space-y-5 px-4 py-4">
-        <div>
-          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
-            Input contract
-          </h4>
+      <div>
+        <Disclosure
+          tone="label"
+          summary="Input contract"
+          meta={`${featureCount} feature${featureCount === 1 ? "" : "s"}`}
+        >
           <div className="mb-2 overflow-x-auto">
-            <table className="w-full text-left text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <table className="w-full text-left text-label" style={{ fontVariantNumeric: "tabular-nums" }}>
               <thead>
                 <tr className="border-b border-zinc-800 text-zinc-400">
                   <th className="px-3 py-2 font-normal">Column</th>
@@ -468,49 +466,49 @@ export default function DeploymentCard({
               <tbody>
                 {contract.feature_columns.map((f) => (
                   <tr key={f.name} className="border-b border-zinc-800/50 last:border-0">
-                    <td className="px-3 py-1.5 font-mono text-zinc-300">{f.name}</td>
-                    <td className="px-3 py-1.5 font-mono text-zinc-400">{f.dtype}</td>
-                    <td className="px-3 py-1.5 font-mono text-zinc-400">{String(f.example)}</td>
+                    <td className="px-3 py-1.5 font-mono text-xs text-zinc-300">{f.name}</td>
+                    <td className="px-3 py-1.5 font-mono text-xs text-zinc-400">{f.dtype}</td>
+                    <td className="px-3 py-1.5 font-mono text-xs text-zinc-400">{String(f.example)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="measure mb-1 text-xs text-zinc-400">
-            Target <span className="font-mono text-zinc-400">{contract.target_column}</span> ·{" "}
+          <p className="measure mb-1 text-label text-zinc-400">
+            Target <span className="font-mono text-xs text-zinc-400">{contract.target_column}</span> ·{" "}
             {contract.task_type.replace(/_/g, " ")}
           </p>
           <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-400">
             {JSON.stringify(contract.example_record, null, 2)}
           </pre>
-        </div>
-
-        <div>
-          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
-            Live tester
-          </h4>
-          <LiveTester
-            deployment={deployment}
-            active={isActive}
-            onPredicted={() => setStatsKey((k) => k + 1)}
-          />
-        </div>
-
-        <div>
-          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
-            Serving stats
-          </h4>
-          <StatsPanel key={`${deployment.version}-${statsKey}`} deploymentId={deployment.id} />
-        </div>
-
-        {candidates && candidates.length > 0 && onPromote && (
-          <PromoteSection
-            currentRun={currentRun ?? null}
-            candidates={candidates}
-            onPromote={onPromote}
-          />
-        )}
+        </Disclosure>
       </div>
+
+      <div>
+        <h4 className="mb-2 text-label font-medium uppercase tracking-wide text-zinc-400">
+          Live tester
+        </h4>
+        <LiveTester
+          deployment={deployment}
+          active={isActive}
+          onPredicted={() => setStatsKey((k) => k + 1)}
+        />
+      </div>
+
+      <div>
+        <h4 className="mb-2 text-label font-medium uppercase tracking-wide text-zinc-400">
+          Serving stats
+        </h4>
+        <StatsPanel key={`${deployment.version}-${statsKey}`} deploymentId={deployment.id} />
+      </div>
+
+      {candidates && candidates.length > 0 && onPromote && (
+        <PromoteSection
+          currentRun={currentRun ?? null}
+          candidates={candidates}
+          onPromote={onPromote}
+        />
+      )}
     </div>
   );
 }

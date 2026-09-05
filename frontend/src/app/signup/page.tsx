@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { useProjects } from "@/lib/projects-context";
 import { extractErrorDetail } from "@/lib/errors";
 import MetisMark from "@/components/MetisMark";
+import GlyphField from "@/components/GlyphField";
 
 /** apiFetch/json both throw `${status}: ${body}` (see lib/api.ts) — a stable
  *  prefix to branch on without parsing the body first. */
@@ -50,8 +51,10 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="flex h-full flex-col items-center justify-center overflow-y-auto px-6 py-16">
-      <div className="w-full max-w-sm">
+    <main className="relative flex h-full flex-col items-center justify-center overflow-y-auto px-6 py-16">
+      <GlyphField />
+
+      <div className="relative z-10 w-full max-w-sm rounded-xl border border-accent-edge bg-zinc-950 p-8">
         <div className="flex items-center justify-center gap-2">
           <MetisMark size={28} className="text-accent" />
           <span className="text-headline font-semibold tracking-tight text-zinc-100">Metis</span>

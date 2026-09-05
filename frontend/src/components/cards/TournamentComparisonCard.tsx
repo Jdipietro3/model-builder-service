@@ -64,33 +64,31 @@ export default function TournamentComparisonCard({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
-      <div className="border-b border-zinc-800 px-4 py-3">
+    <div>
+      <div className="border-b border-zinc-800 py-3">
         <div className="flex items-center gap-2">
-          <span className="rounded bg-bracket-wash px-2 py-0.5 text-xs font-medium text-bracket">
-            TOURNAMENT COMPARISON
-          </span>
-          <span className="text-sm text-zinc-300">{contenders.length}-way</span>
+          <span className="text-title font-medium text-zinc-100">Tournament comparison</span>
+          <span className="text-body text-zinc-300">{contenders.length}-way</span>
         </div>
-        <p className="measure mt-1 text-xs text-zinc-400">
+        <p className="measure mt-1 text-label text-zinc-400">
           Metrics on the shared holdout split. No hard winner is claimed here — check the chat
           for the assistant&apos;s read.
         </p>
       </div>
 
-      <div className="overflow-x-auto px-4 py-4">
-        <table className="w-full min-w-max text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>
+      <div className="overflow-x-auto py-4">
+        <table className="w-full min-w-max text-body" style={{ fontVariantNumeric: "tabular-nums" }}>
           <thead>
             <tr>
-              <th className="px-2 pb-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-400">
+              <th className="px-2 pb-2 text-left text-label font-medium uppercase tracking-wide text-zinc-400">
                 Metric
               </th>
               {contenders.map((c) => (
                 <th key={c.run.id} className="px-3 pb-2 text-left">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-medium text-zinc-200">{columnLabel(c)}</span>
+                    <span className="text-label font-medium text-zinc-200">{columnLabel(c)}</span>
                     {c.run.id === bestRunId && (
-                      <span className="rounded bg-accent-wash px-1.5 py-0.5 text-xs font-medium text-accent">
+                      <span className="rounded bg-accent-wash px-1.5 py-0.5 text-label font-medium text-accent">
                         best on primary metric
                       </span>
                     )}
@@ -108,10 +106,10 @@ export default function TournamentComparisonCard({
                   key={key}
                   className={isPrimary ? "bg-zinc-800/40" : ""}
                 >
-                  <td className="whitespace-nowrap px-2 py-1.5 text-xs text-zinc-400">
+                  <td className="whitespace-nowrap px-2 py-1.5 text-label text-zinc-400">
                     {METRIC_LABELS[key] ?? key}
                     {isPrimary && (
-                      <span className="ml-1.5 text-xs text-accent">optimized</span>
+                      <span className="ml-1.5 text-label text-accent">optimized</span>
                     )}
                   </td>
                   {contenders.map((c) => {
@@ -120,7 +118,7 @@ export default function TournamentComparisonCard({
                     return (
                       <td
                         key={c.run.id}
-                        className={`whitespace-nowrap px-3 py-1.5 font-mono ${
+                        className={`whitespace-nowrap px-3 py-1.5 font-mono text-xs ${
                           isBest ? "font-semibold text-accent-bright" : "text-zinc-200"
                         }`}
                       >

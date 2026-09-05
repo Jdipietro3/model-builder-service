@@ -197,12 +197,24 @@ body {
    paragraph-length text, never to tables or dense data rows, which are allowed
    to run wider. */
 .measure {
-  /* 54ch, not 68ch. The `ch` unit is the advance of the "0" glyph, which in
-     Geist is meaningfully wider than the average character in running prose —
-     68ch measured out to 631px, about 90 real characters, well past the cap it
-     was supposed to enforce. 54ch lands around 72. Verify by measuring rendered
-     text, not by trusting the unit. */
-  max-width: 54ch;
+  /* 68ch, not 54ch. The `ch` unit is the advance of the "0" glyph, which in
+     Geist is meaningfully wider than the average character in running prose:
+     measured live (Geist Mark 0.875rem, canvas + rendered-DOM checks), 1ch is
+     ~9.3px while the average glyph in real sentences is ~6.3px, so 68ch
+     resolves to 631px, about 90 real characters — well past DESIGN.md's
+     65-75ch guidance if you read that number as characters rather than as the
+     CSS unit.
+     This was previously capped at 54ch (~501px, ~80 real characters) because
+     that 90-character line read as too long. It's back up to 68ch as a
+     deliberate compromise for the wide tab surfaces (Model/Score/Metrics/etc,
+     whose content column runs close to 990px): 54ch was leaving nearly half
+     that column empty and reads as a bug ("why does the text stop there?"),
+     and 68ch/631px uses the width without spanning the full row. It is wider
+     than ideal reading measure, and that trade is intentional here, not an
+     oversight. The narrow chat rail is unaffected — its container is ~380px
+     wide before this max-width ever has room to bind. Verify by measuring
+     rendered text, not by trusting the unit. */
+  max-width: 68ch;
   text-wrap: pretty;
 }
 

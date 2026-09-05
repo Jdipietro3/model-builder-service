@@ -199,6 +199,7 @@ export default function ModelTab() {
           methodologies={methodologies}
           status={status}
           onApprove={approveRun}
+          variant="band"
         />
       )}
 

@@ -69,7 +69,7 @@ export default function MetricsTab() {
         />
       ) : (
         <>
-          <ReportCard runId={selected.id} results={results} />
+          <ReportCard runId={selected.id} results={results} variant="band" />
 
           {parentRun && parentResults && (
             <ComparisonCard

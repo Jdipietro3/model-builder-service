@@ -1,7 +1,7 @@
 "use client";
 
-import { ReactNode } from "react";
 import { api, Diagnostics, DiagnosticsCalibration, DiagnosticsSegment, Results } from "@/lib/api";
+import Disclosure from "@/components/Disclosure";
 
 // Chart palette — single source of truth is the token set in globals.css
 // (var(--chart-*)). Constants below just give the SVG/JS call sites a short
@@ -75,52 +75,6 @@ export function fmt(v: number): string {
   return v.toLocaleString(undefined, { maximumFractionDigits: 3 });
 }
 
-function ChevronIcon() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      width={12}
-      height={12}
-      className="shrink-0 text-zinc-400 transition-transform duration-150 group-open:rotate-90"
-      aria-hidden="true"
-    >
-      <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/**
- * Native <details>/<summary> disclosure styled to match the card idiom.
- * Keyboard-accessible with no state required. `summary` must state what's
- * inside in plain language — it's the only thing visible when collapsed.
- */
-function Disclosure({
-  summary,
-  detail,
-  defaultOpen,
-  children,
-}: {
-  summary: string;
-  detail?: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <details className="group border-t border-zinc-800 pt-4" open={defaultOpen}>
-      <summary
-        className="flex list-none cursor-pointer items-center justify-between gap-3 rounded focus-ring-panel [&::-webkit-details-marker]:hidden"
-      >
-        <span className="flex flex-col gap-0.5">
-          <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">{summary}</span>
-          {detail && <span className="text-xs normal-case text-zinc-400">{detail}</span>}
-        </span>
-        <ChevronIcon />
-      </summary>
-      <div className="pt-3">{children}</div>
-    </details>
-  );
-}
-
 function MetricTile({
   name,
   value,
@@ -167,7 +121,13 @@ function MetricGlossary({ metrics }: { metrics: string[] }) {
   const known = metrics.filter((m) => METRIC_DESCRIPTIONS[m]);
   if (known.length === 0) return null;
   return (
-    <Disclosure summary="What these metrics mean" detail="Plain-language definitions for the tiles above" defaultOpen>
+    <Disclosure
+      summary="What these metrics mean"
+      meta="Plain-language definitions for the tiles above"
+      tone="label"
+      defaultOpen
+      className="border-t border-zinc-800 pt-4"
+    >
       {/* `measure` sits on the element that carries the font size, not the <dl>:
           `ch` resolves against the element's own font-size, so capping at the
           14px parent would let 12px text run ~40% wider than intended. */}
@@ -189,9 +149,6 @@ function ImportanceBars({ items }: { items: NonNullable<Results["feature_importa
   const max = Math.max(...top.map((i) => i.importance));
   return (
     <div>
-      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
-        What drives predictions
-      </h4>
       <div className="space-y-1.5">
         {top.map((item) => (
           <div
@@ -253,9 +210,7 @@ function ConfusionMatrix({ labels, matrix }: { labels: string[]; matrix: number[
   const maxCell = Math.max(...matrix.flat(), 1);
   return (
     <div>
-      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
-        Confusion matrix <span className="normal-case">(rows = actual, columns = predicted)</span>
-      </h4>
+      <p className="mb-2 text-xs text-zinc-400">rows = actual, columns = predicted</p>
       <div className="overflow-x-auto">
         <table className="text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
           <thead>
@@ -574,13 +529,10 @@ function CalibrationView({ calibration }: { calibration: DiagnosticsCalibration 
 
   return (
     <div>
-      <div className="mb-2 flex items-baseline justify-between">
-        <h5 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Calibration</h5>
-        <span className="text-xs text-zinc-400">
-          Brier score <span className="font-mono text-accent-bright">{fmt(brier)}</span>{" "}
-          <span className="text-zinc-400">(lower is better)</span>
-        </span>
-      </div>
+      <p className="mb-2 text-xs text-zinc-400">
+        Brier score <span className="font-mono text-accent-bright">{fmt(brier)}</span>{" "}
+        <span className="text-zinc-400">(lower is better)</span>
+      </p>
       <div className="flex flex-wrap items-center gap-4">
         <svg viewBox={`0 0 ${W} ${H}`} width={180} height={180} className="shrink-0" role="img" aria-label="Reliability diagram">
           {/* diagonal = perfect calibration */}
@@ -649,7 +601,15 @@ function LeakageCheck({ diagnostics }: { diagnostics: Diagnostics }) {
   return null;
 }
 
-export default function ReportCard({ runId, results }: { runId: string; results: Results }) {
+export default function ReportCard({
+  runId,
+  results,
+  variant = "card",
+}: {
+  runId: string;
+  results: Results;
+  variant?: "card" | "band";
+}) {
   const { holdout } = results;
   const primary = results.primary_metric;
   const secondary = Object.keys(holdout.metrics).filter((m) => m !== primary);
@@ -662,28 +622,35 @@ export default function ReportCard({ runId, results }: { runId: string; results:
   const hasSegments = !!diagnostics && diagnostics.segments.length > 0;
   const hasCalibration = !!diagnostics && !!diagnostics.calibration;
 
+  const isBand = variant === "band";
+  const sidePad = isBand ? "" : "px-4";
+
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-4 py-3">
+    <div className={isBand ? "" : "overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80"}>
+      <div className={`flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 py-3 ${sidePad}`}>
         <div className="flex items-center gap-2">
-          <span className="rounded bg-accent-wash px-2 py-0.5 text-xs font-medium text-accent">
-            RESULTS
-          </span>
-          <h3 className="text-sm text-zinc-300">{results.methodology.display_name}</h3>
-          <span className="text-xs text-zinc-400">
+          {isBand ? (
+            <span className="text-title font-medium text-zinc-100">Results</span>
+          ) : (
+            <span className="rounded bg-accent-wash px-2 py-0.5 text-label font-medium text-accent">
+              RESULTS
+            </span>
+          )}
+          <h3 className="text-body text-zinc-300">{results.methodology.display_name}</h3>
+          <span className="text-label text-zinc-400">
             trained in {results.training_seconds}s · {results.n_train.toLocaleString()} train /{" "}
             {results.n_test.toLocaleString()} {isForecasting ? "holdout points" : "test rows"}
           </span>
         </div>
         <a
           href={api.artifactUrl(runId)}
-          className="focus-ring-panel rounded px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-accent"
+          className="focus-ring-panel rounded px-3 py-1.5 text-label font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-accent"
         >
           ↓ Download model bundle
         </a>
       </div>
 
-      <div className="space-y-5 px-4 py-4">
+      <div className={`space-y-5 py-4 ${sidePad}`}>
         <div className="space-y-2">
           <MetricTile
             name={primary}
@@ -717,10 +684,17 @@ export default function ReportCard({ runId, results }: { runId: string; results:
         {isForecasting && <ForecastChart results={results} />}
 
         {!isForecasting && holdout.confusion_matrix && (
-          <ConfusionMatrix
-            labels={holdout.confusion_matrix.labels}
-            matrix={holdout.confusion_matrix.matrix}
-          />
+          <Disclosure
+            summary="Confusion matrix"
+            meta={`${holdout.confusion_matrix.matrix.length}×${holdout.confusion_matrix.matrix[0]?.length ?? 0}`}
+            tone="label"
+            className="border-t border-zinc-800 pt-4"
+          >
+            <ConfusionMatrix
+              labels={holdout.confusion_matrix.labels}
+              matrix={holdout.confusion_matrix.matrix}
+            />
+          </Disclosure>
         )}
 
         {!isForecasting && holdout.residuals && (
@@ -737,24 +711,29 @@ export default function ReportCard({ runId, results }: { runId: string; results:
           </div>
         )}
 
+        {/* Leakage / data-quality findings stay permanently visible, not inside a
+            Disclosure: these are warnings that the model itself may be wrong, and
+            hiding a correctness warning behind a click is how a leaked model ships. */}
         {hasLeakageCheck && diagnostics && (
-          <Disclosure
-            summary="Diagnostics — trust check"
-            detail={
-              leakyCount > 0
-                ? `${leakyCount} feature${leakyCount > 1 ? "s" : ""} may be leaking the answer`
-                : "No single feature dominates — looks trustworthy"
-            }
-            defaultOpen
-          >
+          <div className="border-t border-zinc-800 pt-4">
+            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h4 className="text-title font-medium text-zinc-100">Diagnostics — trust check</h4>
+              <span className="text-label text-zinc-400">
+                {leakyCount > 0
+                  ? `${leakyCount} feature${leakyCount > 1 ? "s" : ""} may be leaking the answer`
+                  : "No single feature dominates — looks trustworthy"}
+              </span>
+            </div>
             <LeakageCheck diagnostics={diagnostics} />
-          </Disclosure>
+          </div>
         )}
 
         {hasSegments && diagnostics && (
           <Disclosure
             summary="Per-segment breakdown"
-            detail={`Performance across ${diagnostics.segments.length} column${diagnostics.segments.length > 1 ? "s" : ""} — weakest subgroup highlighted`}
+            meta={`Performance across ${diagnostics.segments.length} column${diagnostics.segments.length > 1 ? "s" : ""} — weakest subgroup highlighted`}
+            tone="label"
+            className="border-t border-zinc-800 pt-4"
           >
             <div className="space-y-3">
               {diagnostics.segments.map((s) => (
@@ -767,7 +746,9 @@ export default function ReportCard({ runId, results }: { runId: string; results:
         {hasCalibration && diagnostics?.calibration && (
           <Disclosure
             summary="Calibration"
-            detail={`How well predicted probabilities match reality — Brier ${fmt(diagnostics.calibration.brier)}`}
+            meta={`Brier ${fmt(diagnostics.calibration.brier)}`}
+            tone="label"
+            className="border-t border-zinc-800 pt-4"
           >
             <CalibrationView calibration={diagnostics.calibration} />
           </Disclosure>
@@ -776,7 +757,9 @@ export default function ReportCard({ runId, results }: { runId: string; results:
         {!isForecasting && results.feature_importances && results.feature_importances.length > 0 && (
           <Disclosure
             summary="What drives predictions"
-            detail={`Top ${Math.min(8, results.feature_importances.filter((i) => i.importance > 0).length)} features by importance`}
+            meta={`${Math.min(8, results.feature_importances.filter((i) => i.importance > 0).length)} features`}
+            tone="label"
+            className="border-t border-zinc-800 pt-4"
           >
             <ImportanceBars items={results.feature_importances} />
           </Disclosure>
