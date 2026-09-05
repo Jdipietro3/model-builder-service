@@ -4,11 +4,11 @@ import { useMemo, useState } from "react";
 import { Methodology, Plan, Profile } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  pending_approval: { label: "Awaiting approval", cls: "bg-amber-950 text-amber-300" },
-  queued: { label: "Queued", cls: "bg-sky-950 text-sky-300" },
-  running: { label: "Training", cls: "bg-sky-950 text-sky-300" },
-  completed: { label: "Completed", cls: "bg-emerald-950 text-emerald-300" },
-  failed: { label: "Failed", cls: "bg-red-950 text-red-300" },
+  pending_approval: { label: "Awaiting approval", cls: "bg-accent-wash text-accent" },
+  queued: { label: "Queued", cls: "bg-info-wash text-info" },
+  running: { label: "Training", cls: "bg-info-wash text-info" },
+  completed: { label: "Completed", cls: "bg-zinc-800 text-zinc-400" },
+  failed: { label: "Failed", cls: "bg-alarm-wash text-alarm" },
 };
 
 export default function PlanCard({
@@ -66,13 +66,13 @@ export default function PlanCard({
 
   const badge = STATUS_LABELS[status] ?? STATUS_LABELS.pending_approval;
   const selectCls =
-    "focus-ring-panel w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-200 focus:border-emerald-600 disabled:cursor-default disabled:border-transparent disabled:appearance-none disabled:px-0";
+    "focus-ring-panel w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-200 focus:border-accent-edge disabled:cursor-default disabled:border-transparent disabled:appearance-none disabled:px-0";
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="rounded bg-violet-950 px-2 py-0.5 text-xs font-medium text-violet-300">
+          <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-400">
             TRAINING PLAN
           </span>
           <span className="text-xs text-zinc-400">on {datasetFilename}</span>
@@ -191,7 +191,7 @@ export default function PlanCard({
                     }
                     className={`focus-ring-panel rounded-full border px-2.5 py-0.5 font-mono text-xs transition-colors ${
                       isExcluded
-                        ? "border-red-900 bg-red-950/60 text-red-300 line-through"
+                        ? "border-alarm/40 bg-alarm-wash text-alarm line-through"
                         : "border-zinc-700 text-zinc-400"
                     } ${editable ? "hover:border-zinc-500" : "cursor-default"}`}
                   >
@@ -208,46 +208,30 @@ export default function PlanCard({
 
       {plan.warnings && plan.warnings.length > 0 && (
         <div className="border-t border-zinc-800 px-4 py-3">
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {plan.warnings.map((w, i) => {
               const high = w.severity === "high";
               return (
-                <div
-                  key={i}
-                  className={`rounded-md px-3 py-2.5 ${
-                    high ? "bg-red-950/30" : "bg-amber-950/30"
-                  }`}
-                >
-                  <div
-                    className={`mb-1 text-xs font-medium ${
-                      high ? "text-red-300" : "text-amber-300"
-                    }`}
-                  >
-                    {high ? "High risk" : "Worth checking"} · {w.category.replace(/_/g, " ")}
-                  </div>
-                  <p
-                    className={`measure text-xs leading-relaxed ${
-                      high ? "text-red-200/80" : "text-amber-200/80"
-                    }`}
-                  >
-                    {w.message}
-                  </p>
-                  {w.columns.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {w.columns.map((c) => (
-                        <span
-                          key={c}
-                          className={`rounded-full border px-2 py-0.5 font-mono text-xs ${
-                            high
-                              ? "border-red-900 text-red-300"
-                              : "border-amber-900 text-amber-300"
-                          }`}
-                        >
-                          {c}
-                        </span>
-                      ))}
+                <div key={i} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-alarm" />
+                  <div className="measure">
+                    <div className="text-xs font-medium text-zinc-100">
+                      {high ? "High risk" : "Worth checking"} · {w.category.replace(/_/g, " ")}
                     </div>
-                  )}
+                    <p className="text-xs leading-relaxed text-zinc-300">{w.message}</p>
+                    {w.columns.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {w.columns.map((c) => (
+                          <span
+                            key={c}
+                            className="rounded-full border border-zinc-700 px-2 py-0.5 font-mono text-xs text-zinc-400"
+                          >
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -279,7 +263,7 @@ export default function PlanCard({
                 ...(isForecasting ? { time_column: timeColumn || null, horizon } : {}),
               })
             }
-            className="focus-ring-panel rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+            className="focus-ring-panel rounded-lg bg-accent px-5 py-2 text-sm font-medium text-accent-ink transition-colors hover:bg-accent-bright"
           >
             Approve &amp; train
           </button>

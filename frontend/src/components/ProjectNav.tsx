@@ -45,7 +45,7 @@ export default function ProjectNav() {
                 aria-current={active ? "page" : undefined}
                 className={`focus-ring-panel block rounded px-2 py-1.5 text-body transition-colors ${
                   active
-                    ? "bg-zinc-900 font-medium text-emerald-400"
+                    ? "bg-zinc-900 font-medium text-accent"
                     : "text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
                 }`}
               >

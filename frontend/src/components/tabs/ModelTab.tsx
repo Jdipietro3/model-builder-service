@@ -156,23 +156,23 @@ export default function ModelTab() {
       <h2 className="text-headline font-semibold text-zinc-100">Model</h2>
 
       {needsReconciliation && (
-        <div className="measure rounded-lg border border-sky-900/60 bg-sky-950/30 px-3 py-2.5 text-label leading-relaxed text-sky-200">
-          <span className="font-medium text-sky-300">
+        <div className="measure rounded-lg bg-info-wash px-3 py-2.5 text-label leading-relaxed text-info">
+          <span className="font-medium text-info">
             {runLabel(projectDeploymentRun, methodologies)}
           </span>{" "}
           is currently live and serving traffic, but the assistant recommends{" "}
-          <span className="font-medium text-sky-300">{runLabel(recommendedRun, methodologies)}</span>{" "}
+          <span className="font-medium text-info">{runLabel(recommendedRun, methodologies)}</span>{" "}
           instead. These differ — promote the recommended run to reconcile, or leave the current
           deployment as is.
         </div>
       )}
 
       {selected.id === recommendedRunId && project?.recommendation_reason && (
-        <div className="rounded-lg border border-emerald-900/60 bg-emerald-950/30 px-3 py-2.5">
-          <div className="mb-1 text-label font-medium text-emerald-300">
+        <div className="rounded-lg bg-accent-wash px-3 py-2.5">
+          <div className="mb-1 text-label font-medium text-accent-bright">
             ★ Recommended by the assistant
           </div>
-          <p className="measure text-label leading-relaxed text-emerald-200/80">
+          <p className="measure text-label leading-relaxed text-zinc-300">
             {project.recommendation_reason}
           </p>
         </div>
@@ -214,7 +214,7 @@ export default function ModelTab() {
             <button
               onClick={handleRetrainClick}
               disabled={retraining}
-              className="focus-ring rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 text-body font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
+              className="focus-ring rounded-lg px-4 py-2 text-body font-medium text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-accent disabled:opacity-40"
             >
               {retraining ? "Retraining…" : `Retrain on updated data (v${datasetTip?.version ?? 1})`}
             </button>
@@ -223,7 +223,7 @@ export default function ModelTab() {
             <button
               onClick={handleDeployClick}
               disabled={deploying}
-              className="focus-ring rounded-lg bg-emerald-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+              className="focus-ring rounded-lg bg-accent px-4 py-2 text-body font-medium text-accent-ink transition-colors hover:bg-accent-bright disabled:opacity-40"
             >
               {deploying ? "Deploying…" : "Deploy this model"}
             </button>
@@ -231,7 +231,7 @@ export default function ModelTab() {
           {canPromoteToLive && (
             <button
               onClick={() => setPromoteDialogOpen(true)}
-              className="focus-ring rounded-lg bg-emerald-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-emerald-500"
+              className="focus-ring rounded-lg bg-accent px-4 py-2 text-body font-medium text-accent-ink transition-colors hover:bg-accent-bright"
             >
               Promote to live deployment (v{projectDeployment!.version})
             </button>

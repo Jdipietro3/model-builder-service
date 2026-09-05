@@ -13,10 +13,10 @@ export default function TrainingCard({
 }) {
   if (status === "failed") {
     return (
-      <div className="rounded-xl border border-red-900 bg-red-950/40 px-4 py-3">
-        <div className="mb-1 text-sm font-medium text-red-300">Training failed</div>
+      <div className="rounded-xl border border-alarm/40 bg-alarm-wash px-4 py-3">
+        <div className="mb-1 text-sm font-medium text-alarm">Training failed</div>
         {error && (
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap font-mono text-xs text-red-400/80">
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap font-mono text-xs text-alarm/80">
             {error}
           </pre>
         )}
@@ -32,7 +32,7 @@ export default function TrainingCard({
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
         <div className="flex items-center gap-2 text-sm text-zinc-400">
-          <span className="h-2 w-2 rounded-full bg-zinc-500" />
+          <span className="h-2 w-2 rounded-full bg-zinc-600" />
           {progress?.message ?? "Waiting for tournament candidates to finish"}
         </div>
       </div>
@@ -44,17 +44,20 @@ export default function TrainingCard({
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
       <div className="mb-2 flex items-center justify-between text-sm">
         <span className="flex items-center gap-2 text-zinc-300">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-info" />
           {progress?.message ?? (status === "queued" ? "Waiting for a worker" : "Training")}
         </span>
-        <span className="text-xs text-zinc-400" style={{ fontVariantNumeric: "tabular-nums" }}>
+        <span
+          className="font-mono text-xs text-accent-bright"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
           {pct}%
         </span>
       </div>
-      {/* Meter: emerald fill on a darker step of the same ramp */}
-      <div className="h-2 overflow-hidden rounded-full bg-emerald-950">
+      {/* Meter: accent-dim fill on the zinc-800 track */}
+      <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
         <div
-          className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+          className="h-full rounded-full bg-accent-dim transition-all duration-700"
           style={{ width: `${Math.max(pct, 2)}%` }}
         />
       </div>

@@ -116,7 +116,7 @@ export default function ModelTree() {
                   </span>
                   <span className="flex shrink-0 items-center gap-1.5">
                     {pending && (
-                      <span className="rounded bg-amber-950 px-1.5 py-0.5 text-label font-medium text-amber-300">
+                      <span className="rounded bg-accent-wash px-1.5 py-0.5 text-label font-medium text-accent">
                         pending
                       </span>
                     )}
@@ -140,21 +140,21 @@ export default function ModelTree() {
                             aria-current={selected ? "true" : undefined}
                             className={`focus-ring-panel flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-body transition-colors ${
                               selected
-                                ? "bg-zinc-900 text-zinc-100"
+                                ? "bg-zinc-900 text-accent"
                                 : "text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
                             }`}
                           >
                             <span
                               aria-hidden="true"
                               className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                                STATUS_DOT[status] ?? "bg-zinc-500"
+                                STATUS_DOT[status] ?? "bg-zinc-600"
                               }`}
                             />
                             <span className="min-w-0 flex-1 truncate" title={runLabel(run, methodologies)}>
                               {runLabel(run, methodologies)}
                             </span>
                             {live && (
-                              <span className="shrink-0 rounded bg-emerald-950 px-1.5 py-0.5 text-label font-medium text-emerald-400">
+                              <span className="shrink-0 rounded bg-accent-wash px-1.5 py-0.5 text-label font-medium text-accent">
                                 live
                               </span>
                             )}

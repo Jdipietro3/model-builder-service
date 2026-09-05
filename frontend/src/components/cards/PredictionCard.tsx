@@ -21,7 +21,7 @@ export default function PredictionCard({ prediction }: { prediction: Prediction 
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="rounded bg-sky-950 px-2 py-0.5 text-xs font-medium text-sky-300">
+          <span className="rounded bg-info-wash px-2 py-0.5 text-xs font-medium text-info">
             PREDICTIONS
           </span>
           <span className="font-mono text-sm text-zinc-300">{prediction.filename}</span>
@@ -32,7 +32,7 @@ export default function PredictionCard({ prediction }: { prediction: Prediction 
         </div>
         <a
           href={api.predictionDownloadUrl(prediction.id)}
-          className="focus-ring-panel rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400"
+          className="focus-ring-panel rounded px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-accent"
         >
           ↓ Download scored CSV
         </a>
@@ -81,7 +81,7 @@ export default function PredictionCard({ prediction }: { prediction: Prediction 
               {(["mean", "min", "max"] as const).map((k) => (
                 <div key={k} className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
                   <div className="text-xs text-zinc-400">{k}</div>
-                  <div className="text-lg font-semibold text-zinc-100">
+                  <div className="font-mono text-lg font-semibold text-accent-bright">
                     {fmt(summary.stats![k])}
                   </div>
                 </div>
@@ -94,7 +94,7 @@ export default function PredictionCard({ prediction }: { prediction: Prediction 
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
             Preview (first {summary.preview.rows.length} rows)
           </h3>
-          <div className="overflow-x-auto rounded-lg bg-zinc-950/40">
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
               <thead>
                 <tr className="border-b border-zinc-800">
@@ -102,7 +102,7 @@ export default function PredictionCard({ prediction }: { prediction: Prediction 
                     <th
                       key={col}
                       className={`whitespace-nowrap px-3 py-2 font-mono font-medium ${
-                        emphasized(col) ? "bg-sky-950/40 text-sky-200" : "text-zinc-400"
+                        emphasized(col) ? "bg-info-wash text-info" : "text-zinc-400"
                       }`}
                     >
                       {col}
@@ -118,7 +118,7 @@ export default function PredictionCard({ prediction }: { prediction: Prediction 
                         key={j}
                         className={`whitespace-nowrap px-3 py-1.5 font-mono ${
                           emphasized(summary.preview.columns[j])
-                            ? "bg-sky-950/20 text-sky-100"
+                            ? "bg-info-wash/60 text-info"
                             : "text-zinc-400"
                         }`}
                       >

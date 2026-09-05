@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- The Metis mark: an asterisk (the moment of counsel) above an open eye
+       (the foresight it produces).
+
+       This file is the browser-tab icon, picked up by Next's app/icon.svg
+       convention. Unlike the inline <MetisMark>, it paints its own near-black
+       rounded-square ground rather than sitting on transparency: a favicon has
+       to survive on light and dark browser chrome alike, and a bare amber mark
+       on transparent disappears against a light tab bar.
+
+       Drawn with wide strokes and only three elements on purpose. At the 16px
+       the tab actually renders, anything finer turns to mush. -->
+  <rect width="64" height="64" rx="13" fill="#09090b" />
+
+  <g stroke="#edb55c" fill="none">
+    <!-- Asterisk: three lines through one center, 60 degrees apart, one of them
+         vertical. Round caps so it reads as a star rather than a hash. -->
+    <g stroke-width="4.2" stroke-linecap="round">
+      <line x1="32" y1="9" x2="32" y2="27" />
+      <line x1="24.2" y1="13.5" x2="39.8" y2="22.5" />
+      <line x1="24.2" y1="22.5" x2="39.8" y2="13.5" />
+    </g>
+  </g>
+
+  <!-- Eye. Solid almond, with the iris cut out back to the ground color and a
+       solid pupil floated inside it — the same figure/ground alternation as the
+       source mark, achieved without a mask so it stays legible if a renderer
+       flattens the file. -->
+  <path
+    d="M6 44 Q32 22 58 44 Q32 66 6 44 Z"
+    fill="#edb55c"
+  />
+  <circle cx="32" cy="44" r="10.5" fill="#09090b" />
+  <circle cx="32" cy="44" r="5.4" fill="#edb55c" />
+</svg>

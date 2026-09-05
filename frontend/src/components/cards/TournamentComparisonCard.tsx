@@ -67,7 +67,7 @@ export default function TournamentComparisonCard({
     <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
       <div className="border-b border-zinc-800 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="rounded bg-violet-950 px-2 py-0.5 text-xs font-medium text-violet-300">
+          <span className="rounded bg-bracket-wash px-2 py-0.5 text-xs font-medium text-bracket">
             TOURNAMENT COMPARISON
           </span>
           <span className="text-sm text-zinc-300">{contenders.length}-way</span>
@@ -90,7 +90,7 @@ export default function TournamentComparisonCard({
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-zinc-200">{columnLabel(c)}</span>
                     {c.run.id === bestRunId && (
-                      <span className="rounded bg-emerald-950 px-1.5 py-0.5 text-xs font-medium text-emerald-300">
+                      <span className="rounded bg-accent-wash px-1.5 py-0.5 text-xs font-medium text-accent">
                         best on primary metric
                       </span>
                     )}
@@ -111,7 +111,7 @@ export default function TournamentComparisonCard({
                   <td className="whitespace-nowrap px-2 py-1.5 text-xs text-zinc-400">
                     {METRIC_LABELS[key] ?? key}
                     {isPrimary && (
-                      <span className="ml-1.5 text-xs text-emerald-500">optimized</span>
+                      <span className="ml-1.5 text-xs text-accent">optimized</span>
                     )}
                   </td>
                   {contenders.map((c) => {
@@ -120,8 +120,8 @@ export default function TournamentComparisonCard({
                     return (
                       <td
                         key={c.run.id}
-                        className={`whitespace-nowrap px-3 py-1.5 ${
-                          isBest ? "font-semibold text-emerald-300" : "text-zinc-200"
+                        className={`whitespace-nowrap px-3 py-1.5 font-mono ${
+                          isBest ? "font-semibold text-accent-bright" : "text-zinc-200"
                         }`}
                       >
                         {v === undefined ? "—" : fmt(v)}

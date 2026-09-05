@@ -52,7 +52,7 @@ export default function Composer({
             disabled={busy}
             aria-label="Upload CSV"
             title="Upload CSV"
-            className="focus-ring flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-zinc-700 text-zinc-400 transition-colors hover:border-emerald-600 hover:text-emerald-500 disabled:pointer-events-none disabled:opacity-40"
+            className="focus-ring flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-accent disabled:pointer-events-none disabled:opacity-40"
           >
             <svg
               width="18"
@@ -80,12 +80,12 @@ export default function Composer({
         }}
         rows={1}
         placeholder={busy ? "Working…" : (placeholder ?? "Ask about your data or model…")}
-        className="focus-ring max-h-40 min-h-10 flex-1 resize-y rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body outline-none placeholder:text-zinc-400 focus:border-emerald-600"
+        className="focus-ring max-h-40 min-h-10 flex-1 resize-y rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body outline-none placeholder:text-zinc-400 focus:border-accent-edge"
       />
       <button
         onClick={onSend}
         disabled={busy || !input.trim()}
-        className="focus-ring h-10 rounded-lg bg-emerald-600 px-4 text-body font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+        className="focus-ring h-10 rounded-lg bg-accent px-4 text-body font-medium text-accent-ink transition-colors hover:bg-accent-bright disabled:opacity-40"
       >
         Send
       </button>

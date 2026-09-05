@@ -7,7 +7,7 @@
  */
 export default function EmptyTab({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-zinc-800 px-6 py-10 text-center">
+    <div className="px-1 py-10 text-center">
       <p className="font-medium text-zinc-300">{title}</p>
       <p className="measure mx-auto mt-1.5 text-body text-zinc-400">{body}</p>
     </div>

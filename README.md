@@ -1,4 +1,4 @@
-# Model Builder (prototype)
+# Metis (prototype)
 
 Chat-driven ML model training for engineers who can code but don't have deep ML
 expertise. Upload a CSV, describe your goal in plain language, review the proposed
@@ -74,5 +74,6 @@ keep them locked out after the reset.
 ## v1 scope
 
 Tabular CSV only; binary/multiclass classification and regression; six
-methodologies (logistic/ridge baselines, random forest, LightGBM). Single user, no
-auth, local files. Training runs in-process on a thread pool.
+methodologies (logistic/ridge baselines, random forest, LightGBM). Local files.
+Training runs in-process on a thread pool. Multi-user as of the auth work below —
+every project is scoped to the account that created it.

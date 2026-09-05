@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useProjects } from "@/lib/projects-context";
+import MetisMark from "@/components/MetisMark";
 
 export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
   const { projects, error, user, userLoading } = useProjects();
@@ -55,6 +56,11 @@ export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
       aria-label="Projects"
       className="flex w-72 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950"
     >
+      <div className="flex shrink-0 items-center gap-1.5 border-b border-zinc-800 px-4 py-3">
+        <MetisMark size={16} className="text-accent" />
+        <span className="text-label font-medium text-zinc-300">Metis</span>
+      </div>
+
       {view === "project" && nav ? (
         <>
           <div className="border-b border-zinc-800 p-3">
@@ -72,7 +78,7 @@ export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
           <div className="border-b border-zinc-800 p-3">
             <Link
               href="/"
-              className="focus-ring flex w-full items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-body font-medium text-zinc-200 transition-colors hover:border-emerald-700 hover:text-emerald-400"
+              className="focus-ring flex w-full items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-body font-medium text-zinc-200 transition-colors hover:border-accent-edge hover:text-accent"
             >
               <span aria-hidden="true">+</span> New project
             </Link>
@@ -83,7 +89,7 @@ export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
               Projects
             </h2>
 
-            {error && <p className="px-2 py-2 text-label text-red-300">{error}</p>}
+            {error && <p className="px-2 py-2 text-label text-alarm">{error}</p>}
 
             {projects === null && !error && (
               <div className="space-y-1.5 p-1" aria-hidden="true">
@@ -133,7 +139,7 @@ export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
                 <button
                   onClick={handleSignOut}
                   disabled={signingOut}
-                  className="focus-ring-panel shrink-0 rounded px-2 py-1 text-label text-zinc-400 transition-colors hover:text-red-400 disabled:opacity-40"
+                  className="focus-ring-panel shrink-0 rounded px-2 py-1 text-label text-zinc-400 transition-colors hover:text-alarm disabled:opacity-40"
                 >
                   {signingOut ? "Signing out…" : "Sign out"}
                 </button>

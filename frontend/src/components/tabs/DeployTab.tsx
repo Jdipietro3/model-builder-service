@@ -33,7 +33,7 @@ function CopyButton({ text }: { text: string }) {
           // is selectable on screen either way, so fail quietly rather than alarm.
         }
       }}
-      className="focus-ring-panel rounded border border-zinc-700 px-2 py-0.5 text-label text-zinc-400 transition-colors hover:border-emerald-600 hover:text-emerald-400"
+      className="focus-ring-panel rounded px-2 py-1 text-label text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-accent"
     >
       {copied ? "Copied" : "Copy"}
     </button>
@@ -106,15 +106,17 @@ function EndpointPanel({ deployment }: { deployment: Deployment }) {
   const curl = `curl -X POST ${url} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${authValue}" \\\n  -d '${JSON.stringify({ records: [deployment.contract.example_record] })}'`;
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-      <h3 className="mb-3 text-title font-medium text-zinc-100">Calling this endpoint</h3>
+    <section className="space-y-4">
+      <h3 className="border-b border-zinc-800 pb-2 text-title font-medium text-zinc-100">
+        Calling this endpoint
+      </h3>
 
-      <p className="measure mb-3 text-label leading-relaxed text-zinc-400">
+      <p className="measure text-label leading-relaxed text-zinc-400">
         Requests require an API key. Create one below and send it as{" "}
         <code className="font-mono text-xs text-zinc-300">Authorization: Bearer &lt;key&gt;</code>.
       </p>
 
-      <dl className="mb-4 space-y-2 text-label">
+      <dl className="space-y-2 text-label">
         <div>
           <dt className="mb-1 uppercase tracking-wide text-zinc-400">Endpoint</dt>
           <dd className="flex items-center gap-2">
@@ -137,7 +139,7 @@ function EndpointPanel({ deployment }: { deployment: Deployment }) {
         </div>
       </dl>
 
-      <div className="mb-4">
+      <div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-label uppercase tracking-wide text-zinc-400">curl</span>
           <CopyButton text={curl} />
@@ -147,29 +149,29 @@ function EndpointPanel({ deployment }: { deployment: Deployment }) {
         </pre>
       </div>
 
-      <div className="border-t border-zinc-800 pt-4">
-        <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="space-y-2 border-t border-zinc-800 pt-4">
+        <div className="flex items-center justify-between gap-2">
           <h4 className="text-label uppercase tracking-wide text-zinc-400">API keys</h4>
           <button
             type="button"
             onClick={handleCreate}
             disabled={creating}
-            className="focus-ring-panel rounded border border-zinc-700 px-2 py-0.5 text-label text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400 disabled:opacity-40"
+            className="focus-ring-panel rounded-lg bg-accent px-3 py-1.5 text-label font-medium text-accent-ink transition-colors hover:bg-accent-bright disabled:opacity-40"
           >
             {creating ? "Creating…" : "Create key"}
           </button>
         </div>
 
         {keysError && (
-          <div className="fade-in mb-2 flex items-start gap-2 rounded-lg border border-red-900 bg-red-950/50 px-3 py-2 text-label text-red-300">
-            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+          <div className="fade-in flex items-start gap-2 rounded-lg bg-alarm-wash px-3 py-2 text-label text-alarm">
+            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-alarm" />
             <span>{keysError}</span>
           </div>
         )}
 
         {justCreated && (
-          <div className="fade-in mb-2 space-y-2 rounded-lg border border-emerald-800 bg-emerald-950/30 px-3 py-2.5">
-            <p className="text-label text-emerald-300">
+          <div className="fade-in space-y-2 rounded-lg border border-accent-edge bg-accent-wash px-3 py-2.5">
+            <p className="text-label text-accent-bright">
               Copy this key now — it will not be shown again once you navigate away.
             </p>
             <div className="flex items-center gap-2">
@@ -188,12 +190,9 @@ function EndpointPanel({ deployment }: { deployment: Deployment }) {
           </p>
         )}
         {keys && keys.length > 0 && (
-          <ul className="divide-y divide-zinc-800 overflow-hidden rounded-lg border border-zinc-800">
+          <ul className="divide-y divide-zinc-800/50">
             {keys.map((k) => (
-              <li
-                key={k.id}
-                className="flex items-center justify-between gap-2 bg-zinc-950/40 px-3 py-2"
-              >
+              <li key={k.id} className="flex items-center justify-between gap-2 py-2">
                 <div className="min-w-0">
                   <div className="font-mono text-xs text-zinc-300">{k.prefix}…</div>
                   <div className="text-label text-zinc-400">
@@ -208,7 +207,7 @@ function EndpointPanel({ deployment }: { deployment: Deployment }) {
                   type="button"
                   onClick={() => handleRevoke(k.id)}
                   disabled={revokingId === k.id}
-                  className="focus-ring-panel shrink-0 rounded border border-zinc-700 px-2 py-0.5 text-label text-zinc-400 transition-colors hover:border-red-600 hover:text-red-400 disabled:opacity-40"
+                  className="focus-ring-panel shrink-0 rounded px-2 py-1 text-label text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-alarm disabled:opacity-40"
                 >
                   {revokingId === k.id ? "Revoking…" : "Revoke"}
                 </button>
@@ -217,7 +216,7 @@ function EndpointPanel({ deployment }: { deployment: Deployment }) {
           </ul>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 

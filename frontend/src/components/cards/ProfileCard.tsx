@@ -19,7 +19,7 @@ export default function ProfileCard({
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60">
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="rounded bg-sky-950 px-2 py-0.5 text-xs font-medium text-sky-300">
+          <span className="rounded bg-info-wash px-2 py-0.5 text-xs font-medium text-info">
             DATASET
           </span>
           <span className="font-mono text-sm text-zinc-300">{filename}</span>
@@ -47,7 +47,7 @@ export default function ProfileCard({
                   {c.name}
                   {profile.target_candidates.includes(c.name) && (
                     <span
-                      className="ml-1.5 rounded bg-emerald-950 px-1 py-0.5 text-xs text-emerald-400"
+                      className="ml-1.5 rounded bg-accent-wash px-1 py-0.5 text-xs text-accent"
                       title="Candidate target column"
                     >
                       target?
@@ -80,10 +80,11 @@ export default function ProfileCard({
       )}
 
       {profile.warnings.length > 0 && (
-        <div className="border-t border-zinc-800 px-4 py-2.5">
+        <div className="space-y-1 border-t border-zinc-800 px-4 py-2.5">
           {profile.warnings.map((w, i) => (
-            <p key={i} className="measure text-xs text-amber-400/90">
-              ⚠ {w}
+            <p key={i} className="flex items-start gap-2 text-xs text-zinc-300">
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-alarm" />
+              <span className="measure">{w}</span>
             </p>
           ))}
         </div>

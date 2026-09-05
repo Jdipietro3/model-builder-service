@@ -1,22 +1,103 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Metis design tokens.
+
+   Every value below is measured, not chosen by eye. Contrast is stated against
+   the three surface layers this system uses — ground #09090b, panel #18181b,
+   raised #27272a — because a token that only passes on the ground will fail the
+   moment someone puts it on a hover row. The numbers are in the comments so the
+   next person does not have to re-derive them before picking a color.
+   --------------------------------------------------------------------------- */
+
 :root {
   --background: #09090b;
   --foreground: #f4f4f5;
 
-  /* Chart / data-viz palette.
-     These replace the hardcoded #3987e5 / #0ca30c / #e66767 that had grown up
-     as a second, undocumented vocabulary. Every value below maps onto a role
-     already named in DESIGN.md, so charts and UI speak one palette. */
-  --chart-seq: #0ea5e9;        /* Readout Sky ramp base — sequential heatmaps, served distribution */
-  --chart-seq-ink: #f0f9ff;    /* text on a saturated sequential cell */
-  --chart-good: #10b981;       /* Signal Green — improvement */
-  --chart-bad: #f87171;        /* Alarm Red — regression */
-  --chart-neutral: #71717a;    /* Ink Inert — non-text only: reference bars, gridlines */
-  --chart-actual: #d4d4d8;     /* Ink Secondary — observed values */
-  --chart-forecast: #10b981;   /* Signal Green — future forecast */
-  --chart-grid: #27272a;       /* hairline gridlines */
-  --chart-axis: #a1a1aa;       /* Ink Muted — axis labels (readable text, so never Ink Inert) */
+  /* Accent ramp (the approved amber sequential set, re-cut into UI roles).
+     Amber replaced emerald as the sole accent when the product became Metis:
+     the data palettes are warm, and a cool action language on the same screen
+     put two signals in competition for the eye.
+
+     ground / panel / raised contrast:
+       accent-wash    1.27  —     —      background tint only, never text
+       accent-line    2.16  —     —      hairline on an accent surface
+       accent-dim     3.11  —     —      non-text fills: bars, dots, tracks
+       accent-edge    4.72  4.20  3.53   BORDERS AND LARGE TEXT ONLY (see below)
+       accent         7.25  6.45  5.42   the accent. Safe as text everywhere.
+       accent-bright 10.77  9.59  8.06   the figure the user came to read */
+  --accent-wash: #2e2110;
+  --accent-line: #634018;
+  --accent-dim: #85541a;
+  --accent-edge: #ab6e1f;
+  --accent: #d08f2c;
+  --accent-bright: #edb55c;
+
+  /* Text ON an accent fill. Near-black, not white: white measures 2.75 on
+     --accent and fails AA outright, while near-black measures 7.25. Every
+     filled amber button in this app therefore has dark text. */
+  --accent-ink: #09090b;
+
+  /* Status vocabulary. Four hues, each owning exactly one meaning, drawn from
+     the approved categorical set so the UI and the charts speak one palette.
+
+     Each wash sits at 1.23-1.26 against the ground — deliberately matched to
+     --accent-wash's 1.27, so a red panel and an amber panel read as the same
+     depth of tint and only the hue distinguishes them. Foreground-on-wash
+     contrast is listed; all clear AA. */
+  --alarm: #e0706e; /* failure and error only.       6.36 ground / 5.13 on wash */
+  --alarm-wash: #3a1618;
+  --info: #22c0d6; /* in-flight, streaming, neutral. 9.08 ground / 7.23 on wash */
+  --info-wash: #0a262b;
+  --bracket: #8b7ff0; /* tournament + ensemble only.   6.06 ground / 4.92 on wash */
+  --bracket-wash: #211c3d;
+
+  /* Note there is deliberately no caution/warning hue. Amber used to carry it,
+     and amber is now the brand; overloading it would make the accent
+     meaningless. Warnings render as ordinary Ink Secondary text with a small
+     --alarm dot marker instead — no wash, no chip. This product surfaces honest
+     caveats constantly, and washing every one of them in red would make a calm
+     instrument read as an alarming one. */
+
+  /* Sequential ramp, verbatim from the approved palette. Encodes magnitude:
+     null rate, cardinality, drift, confusion-matrix density. Dark = low. */
+  --seq-1: #2e2110;
+  --seq-2: #463014;
+  --seq-3: #634018;
+  --seq-4: #85541a;
+  --seq-5: #ab6e1f;
+  --seq-6: #d08f2c;
+  --seq-7: #edb55c;
+  /* Text laid over a saturated cell of the ramp. The top three steps are light
+     enough to need dark ink; below that, use --foreground. */
+  --seq-ink-light: #09090b;
+  --seq-ink-dark: #f4f4f5;
+
+  /* Categorical, verbatim from the approved palette. Series identity, class
+     labels, dtype chips — things that differ in KIND, not in amount. Every
+     entry clears AA on both ground and panel (5.39-9.08), so these are safe as
+     text as well as as marks. Use in listed order; do not reorder for taste. */
+  --cat-1: #22c0d6;
+  --cat-2: #8b7ff0;
+  --cat-3: #e0a03c;
+  --cat-4: #4fb477;
+  --cat-5: #e0706e;
+  --cat-6: #d68bc0;
+  --cat-7: #8e94a6;
+
+  /* Chart roles, expressed in terms of the above rather than as a second
+     private palette. This block is the reason the chart-bearing components
+     re-skin almost for free: ReportCard alone reads these at 21 sites. */
+  --chart-seq: var(--seq-5); /* sequential ramp base */
+  --chart-seq-ink: var(--seq-ink-light);
+  --chart-good: var(--cat-4); /* improvement — green, and ONLY in charts.
+                                 It is not a UI accent; amber is. */
+  --chart-bad: var(--alarm); /* regression */
+  --chart-neutral: #71717a; /* non-text only: reference bars, gridlines */
+  --chart-actual: #d4d4d8; /* observed values */
+  --chart-forecast: var(--accent); /* projected values */
+  --chart-grid: #27272a; /* hairline gridlines */
+  --chart-axis: #a1a1aa; /* axis labels — readable text, so never Ink Inert */
 }
 
 @theme inline {
@@ -25,9 +106,34 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* The type ladder from DESIGN.md. Fixed rem, not fluid: this is product UI
-     at consistent DPI. Label and Body remain the workhorses; the steps above
-     exist to let regions outrank each other. */
+  /* Exposed as Tailwind utilities so the app writes `text-accent` and
+     `bg-alarm-wash` rather than scattering `text-[var(--accent)]` arbitrary
+     values. That keeps the palette greppable — you can count accent usage to
+     check it stays under the 10% budget, which is impossible with arbitrary
+     values. */
+  --color-accent: var(--accent);
+  --color-accent-bright: var(--accent-bright);
+  --color-accent-edge: var(--accent-edge);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-line: var(--accent-line);
+  --color-accent-wash: var(--accent-wash);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-alarm: var(--alarm);
+  --color-alarm-wash: var(--alarm-wash);
+  --color-info: var(--info);
+  --color-info-wash: var(--info-wash);
+  --color-bracket: var(--bracket);
+  --color-bracket-wash: var(--bracket-wash);
+
+  /* The type ladder. Fixed rem, not fluid: this is product UI at consistent
+     DPI. Label and Body remain the workhorses; the steps above exist to let
+     regions outrank each other.
+
+     With the redesign stripping most card borders, this ladder is now doing
+     hierarchy work those borders used to do. Headline is no longer optional
+     decoration — it is the primary tool for keeping a borderless scroll from
+     reading flat. */
   --text-label: 0.75rem;
   --text-label--line-height: 1.45;
   --text-body: 0.875rem;
@@ -54,9 +160,9 @@ body {
   scrollbar-color: #3f3f46 transparent;
 }
 
-/* The standard focus treatment from DESIGN.md: two rings, so the indicator
-   survives on all three surface layers (ground, panel, raised). Applied via
-   focus-visible so pointer users never see it.
+/* The standard focus treatment: two rings, so the indicator survives on all
+   three surface layers (ground, panel, raised). Applied via focus-visible so
+   pointer users never see it.
 
    Usage: add `focus-ring` to any interactive element. Prefer this over
    per-component focus styling so the treatment stays identical everywhere.
@@ -66,12 +172,16 @@ body {
    which left the class inert on every element that carried it. Plain rules are
    passed through verbatim, and being unlayered they also win over the Tailwind
    utility layer, so a focus:border-* on the same element cannot suppress the
-   ring. */
+   ring.
+
+   The ring uses --accent-edge rather than --accent: at 4px it is a border, not
+   text, so the darker step is legitimate here and it reads as less shouty than
+   the full accent against a dense screen. */
 .focus-ring:focus-visible {
   outline: none;
   box-shadow:
     0 0 0 2px var(--background),
-    0 0 0 4px #059669;
+    0 0 0 4px var(--accent-edge);
 }
 
 /* Same treatment for elements sitting on a panel rather than the ground. */
@@ -79,13 +189,13 @@ body {
   outline: none;
   box-shadow:
     0 0 0 2px #18181b,
-    0 0 0 4px #059669;
+    0 0 0 4px var(--accent-edge);
 }
 
-/* Prose measure. DESIGN.md caps sustained reading at 65-75ch; long-form blocks
-   (plan reasoning, caveats, recommendation rationale) were running 87-139
-   characters per line. Apply to any paragraph-length text, never to tables or
-   dense data rows, which are allowed to run wider. */
+/* Prose measure. Long-form blocks (plan reasoning, caveats, recommendation
+   rationale) were running 87-139 characters per line. Apply to any
+   paragraph-length text, never to tables or dense data rows, which are allowed
+   to run wider. */
 .measure {
   /* 54ch, not 68ch. The `ch` unit is the advance of the "0" glyph, which in
      Geist is meaningfully wider than the average character in running prose —
@@ -94,6 +204,17 @@ body {
      text, not by trusting the unit. */
   max-width: 54ch;
   text-wrap: pretty;
+}
+
+/* A section band: the default container now that most cards have lost their
+   borders. A title row with a hairline under it, content sitting directly on
+   the ground. This replaces `rounded-lg border border-zinc-800 bg-zinc-900` as
+   the standard way to group content; the bordered panel is now reserved for
+   genuinely discrete objects (a chat card, a deployment, the confirm dialog). */
+.band {
+  border-bottom: 1px solid #27272a;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 /* State-arrival fade, used when a panel replaces a loading/empty state with

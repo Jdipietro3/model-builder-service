@@ -21,7 +21,7 @@ export default function ProjectGate({ children }: { children: React.ReactNode })
 
   if (loadError) {
     return (
-      <div className="rounded-lg border border-red-900 bg-red-950/50 px-6 py-4 text-red-300">
+      <div className="rounded-lg bg-alarm-wash px-6 py-4 text-body text-alarm">
         Failed to load project: {loadError}
       </div>
     );

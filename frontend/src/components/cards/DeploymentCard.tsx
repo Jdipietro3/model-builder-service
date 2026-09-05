@@ -36,9 +36,9 @@ function DistComparison({ served, training }: { served: Dist | null; training: D
     return (
       <div className="grid grid-cols-3 gap-2">
         {(["mean", "min", "max"] as const).map((k) => (
-          <div key={k} className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+          <div key={k} className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
             <div className="text-xs text-zinc-400">{k}</div>
-            <div className="text-lg font-semibold text-zinc-100">
+            <div className="font-mono text-lg font-semibold text-accent-bright">
               {s ? fmt(s[k]) : <span className="text-zinc-400">—</span>}
             </div>
             <div className="mt-1 text-xs text-zinc-400">training {fmt(training[k])}</div>
@@ -124,7 +124,7 @@ function StatsPanel({ deploymentId }: { deploymentId: string }) {
   }, [deploymentId]);
 
   if (error) {
-    return <p className="text-xs text-red-400">Could not load serving stats: {error}</p>;
+    return <p className="text-xs text-alarm">Could not load serving stats: {error}</p>;
   }
   if (!stats) {
     return <p className="text-xs text-zinc-400">Loading serving stats…</p>;
@@ -133,17 +133,17 @@ function StatsPanel({ deploymentId }: { deploymentId: string }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+        <div className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
           <div className="text-xs text-zinc-400">Requests</div>
-          <div className="text-lg font-semibold text-zinc-100">{stats.n_requests.toLocaleString()}</div>
+          <div className="font-mono text-lg font-semibold text-accent-bright">{stats.n_requests.toLocaleString()}</div>
         </div>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+        <div className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
           <div className="text-xs text-zinc-400">Rows scored</div>
-          <div className="text-lg font-semibold text-zinc-100">{stats.n_rows.toLocaleString()}</div>
+          <div className="font-mono text-lg font-semibold text-accent-bright">{stats.n_rows.toLocaleString()}</div>
         </div>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+        <div className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
           <div className="text-xs text-zinc-400">Avg latency</div>
-          <div className="text-lg font-semibold text-zinc-100">{fmt(stats.avg_latency_ms)} ms</div>
+          <div className="font-mono text-lg font-semibold text-accent-bright">{fmt(stats.avg_latency_ms)} ms</div>
         </div>
       </div>
 
@@ -232,7 +232,7 @@ function PromoteSection({
           <select
             value={selectedRunId}
             onChange={(e) => setSelectedRunId(e.target.value)}
-            className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-300 focus:border-emerald-600"
+            className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-300 focus:border-accent-edge"
           >
             <option value="">Select a completed run…</option>
             {candidates.map((r) => {
@@ -253,7 +253,7 @@ function PromoteSection({
           )}
 
           {error && (
-            <div className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+            <div className="rounded-lg bg-alarm-wash px-3 py-2 text-xs text-alarm">
               {error}
             </div>
           )}
@@ -261,7 +261,7 @@ function PromoteSection({
           <button
             onClick={() => setConfirmOpen(true)}
             disabled={!selectedRunId || busy}
-            className="focus-ring-panel rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400 disabled:opacity-40"
+            className="focus-ring-panel rounded-lg px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-accent disabled:opacity-40"
           >
             {busy ? "Switching…" : "Switch"}
           </button>
@@ -337,13 +337,13 @@ function LiveTester({
         onChange={(e) => setText(e.target.value)}
         rows={8}
         spellCheck={false}
-        className="focus-ring w-full resize-y rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-600"
+        className="focus-ring w-full resize-y rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-300 focus:border-accent-edge"
       />
       <div className="flex items-center justify-between">
         <button
           onClick={run}
           disabled={busy || !active}
-          className="focus-ring-panel rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-emerald-700 hover:bg-zinc-800 hover:text-emerald-300 disabled:opacity-40"
+          className="focus-ring-panel rounded-lg px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-accent disabled:opacity-40"
         >
           {busy ? "Running…" : "Run prediction"}
         </button>
@@ -352,12 +352,12 @@ function LiveTester({
         )}
       </div>
       {error && (
-        <div className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+        <div className="rounded-lg bg-alarm-wash px-3 py-2 text-xs text-alarm">
           {error}
         </div>
       )}
       {result && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+        <div className="rounded-lg bg-zinc-950/40 px-3 py-2.5">
           <h4 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
             Response
           </h4>
@@ -415,21 +415,21 @@ export default function DeploymentCard({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-4 py-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded bg-sky-950 px-2 py-0.5 text-xs font-medium text-sky-300">
+            <span className="rounded bg-info-wash px-2 py-0.5 text-xs font-medium text-info">
               DEPLOYMENT
             </span>
             <span className="text-sm font-medium text-zinc-100">{servingLabel}</span>
             <span
               className={`rounded px-2 py-0.5 text-xs font-medium ${
-                isActive ? "bg-emerald-950 text-emerald-300" : "bg-zinc-800 text-zinc-400"
+                isActive ? "bg-accent-wash text-accent" : "bg-zinc-800 text-zinc-400"
               }`}
             >
               {isActive ? "active" : "stopped"}
             </span>
             <span className="text-xs text-zinc-400">v{deployment.version}</span>
             {isActive && (
-              <span className="flex items-center gap-1 text-xs font-medium text-emerald-400">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+              <span className="flex items-center gap-1 text-xs font-medium text-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                 LIVE
               </span>
             )}
@@ -441,10 +441,10 @@ export default function DeploymentCard({
         <button
           onClick={toggleStatus}
           disabled={toggling}
-          className={`focus-ring-panel rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${
+          className={`focus-ring-panel rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${
             isActive
-              ? "border-zinc-700 text-zinc-300 hover:border-red-600 hover:text-red-400"
-              : "border-zinc-700 text-zinc-300 hover:border-emerald-600 hover:text-emerald-400"
+              ? "text-zinc-300 hover:bg-zinc-800 hover:text-alarm"
+              : "text-zinc-300 hover:bg-zinc-800 hover:text-accent"
           }`}
         >
           {toggling ? "…" : isActive ? "Stop deployment" : "Enable deployment"}
@@ -456,7 +456,7 @@ export default function DeploymentCard({
           <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
             Input contract
           </h4>
-          <div className="mb-2 overflow-x-auto rounded-lg bg-zinc-950/40">
+          <div className="mb-2 overflow-x-auto">
             <table className="w-full text-left text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
               <thead>
                 <tr className="border-b border-zinc-800 text-zinc-400">

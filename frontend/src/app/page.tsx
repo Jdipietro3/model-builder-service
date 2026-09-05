@@ -22,6 +22,7 @@ import { extractErrorDetail } from "@/lib/errors";
 import { deriveProjectName, setPendingMessage } from "@/lib/pending-intent";
 import Sidebar from "@/components/Sidebar";
 import Composer from "@/components/Composer";
+import MetisMark from "@/components/MetisMark";
 
 export default function Home() {
   const router = useRouter();
@@ -67,15 +68,18 @@ export default function Home() {
 
       <main className="flex min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-16">
         <div className="w-full max-w-2xl">
-          <h1 className="text-display font-semibold tracking-tight">Model Builder</h1>
+          <h1 className="flex items-center gap-2.5 text-display font-semibold tracking-tight">
+            <MetisMark size={30} className="text-accent" />
+            Metis
+          </h1>
           <p className="measure mt-2 text-body text-zinc-400">
             Describe your data and goal — get a trained model, an honest evaluation, and
             deployable code. No ML expertise required.
           </p>
 
           {(error || listError) && (
-            <div className="fade-in mt-6 flex items-start gap-2.5 rounded-lg border border-red-900 bg-red-950/50 px-4 py-3 text-body text-red-300">
-              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+            <div className="fade-in mt-6 flex items-start gap-2.5 rounded-lg bg-alarm-wash px-4 py-3 text-body text-alarm">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-alarm" />
               <span>{error ?? listError}</span>
             </div>
           )}

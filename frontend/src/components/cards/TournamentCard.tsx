@@ -4,23 +4,23 @@ import { Methodology, Plan } from "@/lib/api";
 import { RunState } from "@/lib/project-context";
 
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  pending_approval: { label: "Awaiting approval", cls: "bg-amber-950 text-amber-300" },
-  queued: { label: "Queued", cls: "bg-sky-950 text-sky-300" },
-  running: { label: "Training", cls: "bg-sky-950 text-sky-300" },
+  pending_approval: { label: "Awaiting approval", cls: "bg-accent-wash text-accent" },
+  queued: { label: "Queued", cls: "bg-info-wash text-info" },
+  running: { label: "Training", cls: "bg-info-wash text-info" },
   waiting: { label: "Waiting", cls: "bg-zinc-800 text-zinc-400" },
   claimed: { label: "Waiting", cls: "bg-zinc-800 text-zinc-400" },
-  completed: { label: "Completed", cls: "bg-emerald-950 text-emerald-300" },
-  failed: { label: "Failed", cls: "bg-red-950 text-red-300" },
+  completed: { label: "Completed", cls: "bg-zinc-800 text-zinc-400" },
+  failed: { label: "Failed", cls: "bg-alarm-wash text-alarm" },
 };
 
 const STATUS_DOT: Record<string, string> = {
-  pending_approval: "bg-amber-400",
-  queued: "bg-sky-400",
-  running: "bg-sky-400",
-  waiting: "bg-zinc-500",
-  claimed: "bg-zinc-500",
-  completed: "bg-emerald-500",
-  failed: "bg-red-500",
+  pending_approval: "bg-accent",
+  queued: "bg-info",
+  running: "bg-info",
+  waiting: "bg-zinc-600",
+  claimed: "bg-zinc-600",
+  completed: "bg-zinc-400",
+  failed: "bg-alarm",
 };
 
 interface TournamentCandidate {
@@ -58,7 +58,7 @@ export default function TournamentCard({
     <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="rounded bg-violet-950 px-2 py-0.5 text-xs font-medium text-violet-300">
+          <span className="rounded bg-bracket-wash px-2 py-0.5 text-xs font-medium text-bracket">
             TOURNAMENT
           </span>
           <span className="text-xs text-zinc-400">on {datasetFilename}</span>
@@ -111,9 +111,9 @@ export default function TournamentCard({
         })}
 
         {ensemble !== "none" && (
-          <div className="flex items-center justify-between rounded-lg bg-violet-950/20 px-3 py-2">
+          <div className="flex items-center justify-between rounded-lg bg-bracket-wash px-3 py-2">
             <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+              <span className="h-1.5 w-1.5 rounded-full bg-bracket" />
               <span className="text-sm text-zinc-300">
                 Auto-build {ensemble === "blend" ? "weighted blend" : "stacked"} ensemble from
                 whichever candidates complete
@@ -144,7 +144,7 @@ export default function TournamentCard({
           </span>
           <button
             onClick={() => onApproveTournament(tournamentId)}
-            className="focus-ring-panel rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+            className="focus-ring-panel rounded-lg bg-accent px-5 py-2 text-sm font-medium text-accent-ink transition-colors hover:bg-accent-bright"
           >
             Approve &amp; train all
           </button>

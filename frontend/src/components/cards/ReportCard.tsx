@@ -152,9 +152,9 @@ function MetricTile({
     >
       <div className="text-xs text-zinc-400">
         {METRIC_LABELS[name] ?? name}
-        {primary && <span className="ml-1.5 text-xs text-emerald-500">optimized</span>}
+        {primary && <span className="ml-1.5 text-xs text-accent">optimized</span>}
       </div>
-      <div className={`font-semibold text-zinc-100 ${primary ? "text-2xl" : "text-lg"}`}>
+      <div className={`font-mono font-semibold text-accent-bright ${primary ? "text-2xl" : "text-lg"}`}>
         {fmt(value)}
       </div>
       {deltaEl}
@@ -225,18 +225,26 @@ function ImportanceBars({ items }: { items: NonNullable<Results["feature_importa
   );
 }
 
-// Numeric mirror of var(--chart-seq) (#0ea5e9), needed because the ink-color
-// choice below requires real RGB math (composite the cell over the panel,
-// compute luminance) that CSS custom properties can't do for us at render
-// time. Darkened to 72% brightness before blending — at full brightness the
-// mid-alpha steps of the ramp (~alpha 0.55–0.85) sit in a "too bright for
-// dark ink, too mid-tone for light ink" zone that tops out at 4.26:1 contrast
-// against both inks, which fails AA. Darkening the fill base pulls the whole
-// ramp's luminance down so light ink (#f4f4f5) clears AA everywhere; verified
-// by walking the full alpha range (0.08 → 0.93) in 0.2%-of-range steps, worst
-// case 4.99:1.
-const SEQ_RGB: RGB = [14, 165, 233];
-const SEQ_FILL_RGB: RGB = SEQ_RGB.map((c) => c * 0.72) as RGB;
+// Numeric mirror of var(--chart-seq) (#ab6e1f, the amber ramp's --seq-5),
+// needed because the ink-color choice below requires real RGB math (composite
+// the cell over the panel, compute luminance) that CSS custom properties
+// cannot do for us at render time. Keep this in sync with --chart-seq by hand;
+// there is no mechanism that will catch it drifting.
+//
+// Darkened slightly before blending, for the same reason the old sky version
+// was: at full brightness some alpha step always lands in a "too bright for
+// dark ink, too mid-tone for light ink" zone that tops out at 4.26:1 against
+// BOTH inks and fails AA no matter which one is chosen. Darkening pulls the
+// ramp's luminance down until light ink clears AA across the whole range.
+//
+// The factor was re-derived when the palette moved from sky to amber rather
+// than carried over — the old 0.72 was tuned to a different hue and means
+// nothing here. Verified by walking the full alpha range (0.08 → 0.93) in
+// 0.2%-of-range steps: at 0.9 the worst case is 5.02:1, slightly better than
+// the 4.99:1 the sky version achieved, and 0.9 is the lightest factor that
+// clears the plateau — anything nearer 1.0 falls back onto 4.26 and fails.
+const SEQ_RGB: RGB = [171, 110, 31];
+const SEQ_FILL_RGB: RGB = SEQ_RGB.map((c) => c * 0.9) as RGB;
 const PANEL_RGB: RGB = [24, 24, 27]; // Ink Panel (#18181b) — the surface these cells sit on
 const LIGHT_INK: RGB = [244, 244, 245]; // #f4f4f5
 const DARK_INK: RGB = [9, 9, 11]; // #09090b
@@ -525,10 +533,10 @@ function SegmentTable({ segment }: { segment: DiagnosticsSegment }) {
               return (
                 <tr
                   key={s.value}
-                  className={isWorst ? "bg-red-950/30" : undefined}
+                  className={isWorst ? "bg-alarm-wash" : undefined}
                 >
                   <td
-                    className={`py-1 pr-3 ${isWorst ? "text-red-300" : "text-zinc-300"}`}
+                    className={`py-1 pr-3 ${isWorst ? "text-alarm" : "text-zinc-300"}`}
                     title={isWorst ? `Weakest segment (${lowerBetter ? "highest" : "lowest"} ${label})` : undefined}
                   >
                     {isWorst && <span className="mr-1">⚠</span>}
@@ -538,7 +546,7 @@ function SegmentTable({ segment }: { segment: DiagnosticsSegment }) {
                   {Object.entries(s.metrics).map(([k, v]) => (
                     <td
                       key={k}
-                      className={`py-1 pr-3 text-right ${isWorst ? "text-red-300" : "text-zinc-300"}`}
+                      className={`py-1 pr-3 text-right ${isWorst ? "text-alarm" : "text-zinc-300"}`}
                     >
                       {fmt(v)}
                     </td>
@@ -569,7 +577,7 @@ function CalibrationView({ calibration }: { calibration: DiagnosticsCalibration 
       <div className="mb-2 flex items-baseline justify-between">
         <h5 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Calibration</h5>
         <span className="text-xs text-zinc-400">
-          Brier score <span className="font-mono text-zinc-300">{fmt(brier)}</span>{" "}
+          Brier score <span className="font-mono text-accent-bright">{fmt(brier)}</span>{" "}
           <span className="text-zinc-400">(lower is better)</span>
         </span>
       </div>
@@ -618,9 +626,9 @@ function LeakageCheck({ diagnostics }: { diagnostics: Diagnostics }) {
 
   if (leaky.length > 0) {
     return (
-      <div className="rounded-lg border border-red-900/70 bg-red-950/30 px-3 py-2.5">
+      <div className="rounded-lg border border-alarm/40 bg-alarm-wash px-3 py-2.5">
         {leaky.map((f) => (
-          <p key={f.feature} className="measure text-xs leading-relaxed text-red-200/90">
+          <p key={f.feature} className="measure text-xs leading-relaxed text-alarm">
             ⚠ <span className="font-mono">{f.feature}</span> alone reaches{" "}
             <span className="font-semibold">{(f.ratio * 100).toFixed(0)}%</span> of full model
             performance ({fmt(f.solo_score)} vs {fmt(f.full_score)}) — likely leakage.
@@ -658,7 +666,7 @@ export default function ReportCard({ runId, results }: { runId: string; results:
     <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="rounded bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-300">
+          <span className="rounded bg-accent-wash px-2 py-0.5 text-xs font-medium text-accent">
             RESULTS
           </span>
           <h3 className="text-sm text-zinc-300">{results.methodology.display_name}</h3>
@@ -669,7 +677,7 @@ export default function ReportCard({ runId, results }: { runId: string; results:
         </div>
         <a
           href={api.artifactUrl(runId)}
-          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400 focus-ring-panel"
+          className="focus-ring-panel rounded px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-accent"
         >
           ↓ Download model bundle
         </a>
@@ -722,8 +730,8 @@ export default function ReportCard({ runId, results }: { runId: string; results:
             </h4>
             <p className="measure text-sm text-zinc-300">
               80% of predictions land within{" "}
-              <span className="font-mono">{fmt(holdout.residuals.p10)}</span> to{" "}
-              <span className="font-mono">+{fmt(holdout.residuals.p90)}</span> of the true value
+              <span className="font-mono text-accent-bright">{fmt(holdout.residuals.p10)}</span> to{" "}
+              <span className="font-mono text-accent-bright">+{fmt(holdout.residuals.p90)}</span> of the true value
               (target mean {fmt(holdout.residuals.target_mean)}).
             </p>
           </div>
@@ -782,12 +790,13 @@ export default function ReportCard({ runId, results }: { runId: string; results:
         )}
 
         {results.caveats.length > 0 && (
-          <div className="rounded-lg bg-amber-950/40 px-3 py-2.5">
-            <div className="mb-1 text-xs font-medium text-amber-300">Caveats to check</div>
-            <ul className="space-y-1">
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium text-zinc-300">Caveats to check</div>
+            <ul className="space-y-1.5">
               {results.caveats.map((c, i) => (
-                <li key={i} className="measure text-xs leading-relaxed text-amber-200/80">
-                  • {c}
+                <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-zinc-300">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-alarm" />
+                  <span className="measure">{c}</span>
                 </li>
               ))}
             </ul>
