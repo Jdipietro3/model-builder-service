@@ -259,6 +259,22 @@ class _RefWithSiblingInput(ToolInput):
     required_sub: _SiblingSub = Field(description="sibling description")
 
 
+# ---------------------------------------------------------------------------
+# Test 7: the three tools touched by Phase 1 (nested RecipeStepInput lists)
+# clean to schemas with no leftover $defs/$ref.
+
+
+@pytest.mark.parametrize("name", ["propose_plan", "propose_tournament", "preview_recipe"])
+def test_recipe_tools_schema_has_no_defs_or_refs(name):
+    spec = tools._REGISTRY[name]
+    schema = _clean_schema(spec.input_model.model_json_schema())
+    assert "$defs" not in schema
+    for node in _iter_schema_nodes(schema):
+        assert "$ref" not in node, f"{name}: leftover $ref in {node}"
+        assert "$defs" not in node, f"{name}: leftover $defs in {node}"
+    assert "preprocessing" in schema["properties"]
+
+
 def test_ref_with_sibling_keys_keeps_siblings_after_inlining():
     raw = _RefWithSiblingInput.model_json_schema()
     # Confirm the fixture actually exercises a $ref-with-siblings node before

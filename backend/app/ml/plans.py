@@ -148,24 +148,81 @@ _FAMILY_VALIDATORS: dict[str, FamilyValidator] = {
 }
 
 
-def _validate_new_fields(plan: Plan, profile: dict[str, Any], errors: list[str]) -> None:
-    """Phase 0 shape checks for the recipe/tuning/hyperparameters/revision fields.
-    These fields aren't consumed by any runner yet, so only validate what's
-    genuinely wrong now (unknown columns, non-flat hyperparameters); the deeper
-    checks (search spaces, op-specific column requirements) land with the phases
-    that actually interpret these fields.
+def _validate_preprocessing(plan: Plan, spec: dict[str, Any], profile: dict[str, Any], errors: list[str]) -> None:
+    """Phase 1 recipe validation: each step's op must be a known op (ml/recipe.py's
+    OPS registry), its params must satisfy that op's pydantic params model, its
+    columns must exist in the profile, the op must be allowed by the
+    methodology's ``feature_ops_allowed`` when set, and task-type-restricted ops
+    (class_balance/target_transform) must match the plan's task_type. An
+    explicitly empty list is rejected — ``null`` means "use the default recipe".
+
+    Deliberately a local import (not at module scope): ``ml/recipe.py`` must not
+    import ``ml/plans.py`` (recipe.py ships standalone into training bundles),
+    so the dependency only goes one way, from here.
     """
-    if plan.preprocessing:
-        column_names = {c["name"] for c in profile["columns"]}
-        for step in plan.preprocessing:
-            if not step.columns:
-                continue  # empty columns means "applies to the auto-selected group"
+    from pydantic import ValidationError as _ValidationError
+
+    from . import recipe as recipe_mod
+
+    if plan.preprocessing is not None and len(plan.preprocessing) == 0:
+        errors.append("preprocessing: [] is invalid; use null for the default recipe")
+        return
+    if not plan.preprocessing:
+        return
+
+    column_names = {c["name"] for c in profile["columns"]}
+    allowed = spec.get("feature_ops_allowed")
+    for step in plan.preprocessing:
+        op = step.op
+        op_info = recipe_mod.OPS.get(op)
+        if op_info is None:
+            errors.append(f"Preprocessing step has unknown op '{op}'")
+            continue
+
+        if step.columns:
             unknown = [c for c in step.columns if c not in column_names]
             if unknown:
                 errors.append(
-                    f"Preprocessing step '{step.op}' references columns not in dataset: "
-                    f"{', '.join(unknown)}"
+                    f"Preprocessing step '{op}' references columns not in dataset: {', '.join(unknown)}"
                 )
+
+        try:
+            op_info.params_model(**(step.params or {}))
+        except _ValidationError as e:
+            errors.append(f"Preprocessing step '{op}' has invalid params: {e}")
+
+        if allowed is not None and op not in allowed:
+            errors.append(
+                f"Preprocessing step '{op}' is not allowed for methodology '{plan.methodology_id}' "
+                f"(allowed: {', '.join(sorted(allowed))})"
+            )
+
+        if op_info.task_types is not None and plan.task_type not in op_info.task_types:
+            errors.append(
+                f"Preprocessing step '{op}' is only valid for task type(s) "
+                f"{', '.join(op_info.task_types)}, got '{plan.task_type}'"
+            )
+
+        if op == "arithmetic":
+            for key in ("left", "right"):
+                val = (step.params or {}).get(key)
+                if val is not None and val not in column_names:
+                    errors.append(f"Preprocessing step 'arithmetic' references unknown column '{val}'")
+        if op == "group_aggregate":
+            for key in ("key", "column"):
+                val = (step.params or {}).get(key)
+                if val is not None and val not in column_names:
+                    errors.append(f"Preprocessing step 'group_aggregate' references unknown column '{val}'")
+
+
+def _validate_new_fields(
+    plan: Plan, spec: dict[str, Any], profile: dict[str, Any], errors: list[str]
+) -> None:
+    """Shape/content checks for the recipe/tuning/hyperparameters/revision
+    fields. Preprocessing is fully validated against ml/recipe.py's op registry
+    (Phase 1); tuning's deeper checks (search spaces) land with Phase 2.
+    """
+    _validate_preprocessing(plan, spec, profile, errors)
 
     if plan.hyperparameters is not None:
         for key, value in plan.hyperparameters.items():
@@ -218,7 +275,7 @@ def validate_plan(
     else:
         validator(plan, spec, profile, errors)
 
-    _validate_new_fields(plan, profile, errors)
+    _validate_new_fields(plan, spec, profile, errors)
 
     if errors:
         return None, errors

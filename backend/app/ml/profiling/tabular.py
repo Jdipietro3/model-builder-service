@@ -57,6 +57,25 @@ def _looks_like_datetime(s: pd.Series) -> bool:
     return parsed.notna().mean() >= DATE_PARSE_THRESHOLD
 
 
+def _looks_like_text(s: pd.Series, n_rows: int, n_unique: int) -> bool:
+    """A string column is genuinely free-text only when it's both wordy
+    (avg_tokens > 3 or avg_len > 30) AND high-cardinality (cardinality_ratio >
+    0.5). This keeps high-card-but-short columns (zip codes, SKUs, short
+    codes) classified as categorical rather than text."""
+    n_non_null = int(s.notna().sum())
+    if n_rows == 0 or n_non_null == 0:
+        return False
+    cardinality_ratio = n_unique / n_non_null
+    if cardinality_ratio <= 0.5:
+        return False
+    sample = s.dropna().astype(str).head(DATE_SAMPLE)
+    if sample.empty:
+        return False
+    avg_len = float(sample.str.len().mean())
+    avg_tokens = float(sample.str.split().str.len().mean())
+    return avg_tokens > 3 or avg_len > 30
+
+
 def _classify_column(s: pd.Series, n_rows: int) -> str:
     n_unique = s.nunique(dropna=True)
     if pd.api.types.is_bool_dtype(s):
@@ -79,7 +98,11 @@ def _classify_column(s: pd.Series, n_rows: int) -> str:
         return "id_like"
     if n_unique <= max(30, int(0.05 * n_rows)):
         return "categorical"
-    return "text"
+    if _looks_like_text(s, n_rows, n_unique):
+        return "text"
+    # High-cardinality but short/non-wordy (e.g. zip codes, SKUs): categorical,
+    # not text.
+    return "categorical"
 
 
 def _top_values(s: pd.Series, n_rows: int) -> list[dict[str, Any]]:
@@ -275,15 +298,44 @@ def profile_dataframe(df: pd.DataFrame) -> dict[str, Any]:
             "sample_values": [_trunc(v) for v in s.dropna().unique()[:5]],
         }
         if kind == "numeric":
+            q1 = float(s.quantile(0.25))
+            q3 = float(s.quantile(0.75))
+            iqr = q3 - q1
+            if iqr > 0:
+                lo, hi = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+                n_outliers_iqr = int(((s < lo) | (s > hi)).sum())
+            else:
+                n_outliers_iqr = 0
+            try:
+                skewness = float(s.skew())
+                if not np.isfinite(skewness):
+                    skewness = 0.0
+            except Exception:
+                skewness = 0.0
             info["stats"] = {
                 "mean": round(float(s.mean()), 4),
                 "std": round(float(s.std()), 4),
                 "min": round(float(s.min()), 4),
-                "p25": round(float(s.quantile(0.25)), 4),
+                "p25": round(q1, 4),
                 "median": round(float(s.quantile(0.5)), 4),
-                "p75": round(float(s.quantile(0.75)), 4),
+                "p75": round(q3, 4),
                 "max": round(float(s.max()), 4),
+                "skewness": round(skewness, 4),
+                "n_outliers_iqr": n_outliers_iqr,
             }
+        if kind in ("categorical", "text"):
+            n_non_null = int(s.notna().sum())
+            info["cardinality_ratio"] = round(n_unique / n_non_null, 4) if n_non_null else 0.0
+        if kind == "text":
+            sample = s.dropna().astype(str)
+            if len(sample):
+                info["text_stats"] = {
+                    "avg_len": round(float(sample.str.len().mean()), 2),
+                    "avg_tokens": round(float(sample.str.split().str.len().mean()), 2),
+                    "pct_empty": round(100.0 * float((sample.str.strip() == "").mean()), 2),
+                }
+            else:
+                info["text_stats"] = {"avg_len": 0.0, "avg_tokens": 0.0, "pct_empty": 0.0}
         # Value distribution (class balance) for low-cardinality columns.
         if kind in ("categorical", "boolean") or (kind == "numeric" and n_unique <= 20):
             info["top_values"] = _top_values(s, n_rows)
@@ -326,6 +378,7 @@ def profile_dataframe(df: pd.DataFrame) -> dict[str, Any]:
         "data_shape": "tabular",
         "n_rows": int(n_rows),
         "n_cols": int(n_cols),
+        "duplicate_rows": int(df.duplicated().sum()),
         "sample_rows": _sample_rows(df),
         "columns": columns,
         "target_candidates": target_candidates,

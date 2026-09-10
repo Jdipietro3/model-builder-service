@@ -23,17 +23,42 @@ def _fmt(obj: Any) -> str:
     return repr(obj)
 
 
+def _minimal_profile_columns(spec_or_none, outcome: RunOutcome) -> list[dict]:
+    """The minimal per-column profile shape ``recipe.compile_recipe`` actually
+    reads (name/kind/n_unique/stats/top_values) — not the full profiling
+    envelope, so bundles don't need to carry sample rows / associations."""
+    profile = outcome.meta.get("profile")
+    if profile is None:
+        return []
+    cols = []
+    for c in profile.get("columns", []):
+        cols.append(
+            {
+                "name": c["name"],
+                "kind": c["kind"],
+                "n_unique": c["n_unique"],
+                "stats": c.get("stats"),
+                "top_values": c.get("top_values"),
+            }
+        )
+    return cols
+
+
 def _generate_train_py(outcome: RunOutcome, plan: dict) -> str:
     spec = outcome.meta["spec"]
-    module_path, class_name = spec["model"]["class"].rsplit(".", 1)
-    params = {**spec["model"].get("params", {}), **outcome.meta["best_params"]}
-    scale = spec["preprocessing"]["numeric"].get("scale", False)
-    num_impute = spec["preprocessing"]["numeric"]["impute"]
-    cat_impute = spec["preprocessing"]["categorical"]["impute"]
     is_classification = plan["task_type"] != "regression"
+    recipe_steps = outcome.meta.get("recipe") or []
+    minimal_spec = {
+        "id": spec["id"],
+        "display_name": spec["display_name"],
+        "preprocessing": spec["preprocessing"],
+        "model": {
+            "class": spec["model"]["class"],
+            "params": {**spec["model"].get("params", {}), **outcome.meta["best_params"]},
+        },
+    }
+    profile_columns = _minimal_profile_columns(spec, outcome)
 
-    scale_import = ", StandardScaler" if scale else ""
-    scale_step = '\n        ("scale", StandardScaler()),' if scale else ""
     if is_classification:
         eval_imports = "from sklearn.metrics import accuracy_score, roc_auc_score\nfrom sklearn.preprocessing import LabelEncoder"
         target_prep = """    label_encoder = LabelEncoder()
@@ -59,7 +84,9 @@ def _generate_train_py(outcome: RunOutcome, plan: dict) -> str:
 Methodology: {spec["display_name"]} ({spec["id"]})
 Target: {plan["target_column"]} | Task: {plan["task_type"]}
 
-This script is self-contained: edit anything you like and re-run it.
+This script is self-contained: edit anything you like and re-run it. Feature
+engineering is driven by ``recipe.py`` (bundled alongside this script) — edit
+RECIPE below to change what preprocessing runs.
 Usage: python train.py path/to/data.csv
 """
 
@@ -67,48 +94,33 @@ import sys
 
 import joblib
 import pandas as pd
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder{scale_import}
+
+import recipe as recipe_mod
 {eval_imports}
-from {module_path} import {class_name}
 
 TARGET = {_fmt(plan["target_column"])}
-NUMERIC_FEATURES = {_fmt(outcome.meta["numeric_columns"])}
-CATEGORICAL_FEATURES = {_fmt(outcome.meta["categorical_columns"])}
-# Hyperparameters selected by cross-validated grid search
-MODEL_PARAMS = {_fmt(params)}
-
-
-def build_pipeline() -> Pipeline:
-    numeric = Pipeline([
-        ("impute", SimpleImputer(strategy={_fmt(num_impute)})),{scale_step}
-    ])
-    categorical = Pipeline([
-        ("impute", SimpleImputer(strategy={_fmt(cat_impute)})),
-        ("onehot", OneHotEncoder(handle_unknown="ignore", max_categories=30)),
-    ])
-    preprocess = ColumnTransformer([
-        ("num", numeric, NUMERIC_FEATURES),
-        ("cat", categorical, CATEGORICAL_FEATURES),
-    ], remainder="drop")
-    return Pipeline([
-        ("preprocess", preprocess),
-        ("model", {class_name}(**MODEL_PARAMS)),
-    ])
+TASK_TYPE = {_fmt(plan["task_type"])}
+# The resolved recipe this run trained with — edit steps to change preprocessing.
+RECIPE = {_fmt(recipe_steps)}
+# Minimal methodology spec (model class + selected hyperparameters).
+SPEC = {_fmt(minimal_spec)}
+# Minimal profile column metadata the recipe compiler needs (name/kind/n_unique/stats).
+PROFILE_COLUMNS = {_fmt(profile_columns)}
+PLAN = {{"target_column": TARGET, "task_type": TASK_TYPE, "excluded_columns": []}}
+PROFILE = {{"columns": PROFILE_COLUMNS}}
 
 
 def main(csv_path: str) -> None:
     df = pd.read_csv(csv_path).dropna(subset=[TARGET])
-    X = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
+    pipeline, info = recipe_mod.compile_recipe(RECIPE, PROFILE, SPEC, PLAN)
+    X = df[info.feature_columns]
 {target_prep}
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42{stratify}
     )
-    model = build_pipeline()
+    model = pipeline
     model.fit(X_train, y_train)
 
 {eval_block}
@@ -117,9 +129,9 @@ def main(csv_path: str) -> None:
         {{
             "pipeline": model,
             "meta": {{
-                "feature_columns": NUMERIC_FEATURES + CATEGORICAL_FEATURES,
+                "feature_columns": info.feature_columns,
                 "target_column": TARGET,
-                "task_type": {_fmt(plan["task_type"])},
+                "task_type": TASK_TYPE,
                 {meta_extra}
             }},
         }},
@@ -160,6 +172,10 @@ import joblib
 import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+# Registers the app.ml.recipe sys.modules alias so joblib.load below can
+# unpickle the recipe.py classes the fitted pipeline was pickled with.
+import recipe  # noqa: F401
 
 bundle = joblib.load("model.joblib")
 pipeline, meta = bundle["pipeline"], bundle["meta"]
@@ -884,6 +900,13 @@ def build_bundle(run_id: str, outcome: RunOutcome, plan: dict) -> str:
     (bundle_dir / "serve.py").write_text(serve_py, encoding="utf-8")
     (bundle_dir / "README.md").write_text(readme, encoding="utf-8")
 
+    if task_family == "supervised":
+        # recipe.py must be importable standalone from the bundle dir (train.py
+        # does `import recipe`, and the fitted pipeline pickles classes defined
+        # there) — see recipe.py's module docstring / sys.modules aliasing.
+        recipe_src = Path(__file__).resolve().parent / "recipe.py"
+        shutil.copy(recipe_src, bundle_dir / "recipe.py")
+
     reqs = ["scikit-learn>=1.6", "pandas>=2.2", "joblib>=1.4", "fastapi>=0.115", "uvicorn>=0.32"]
     # sklearn model classes need nothing extra; non-sklearn libraries pin their own line.
     extra_reqs = {"lightgbm": "lightgbm>=4.5", "xgboost": "xgboost>=3.3", "prophet": "prophet>=1.3"}
@@ -898,6 +921,8 @@ def build_bundle(run_id: str, outcome: RunOutcome, plan: dict) -> str:
         top_module = outcome.meta["spec"]["model"]["class"].split(".")[0]
         if top_module in extra_reqs:
             reqs.insert(0, extra_reqs[top_module])
+        if task_family == "supervised" and outcome.meta.get("uses_imblearn"):
+            reqs.append("imbalanced-learn>=0.14")
     (bundle_dir / "requirements.txt").write_text("\n".join(reqs) + "\n", encoding="utf-8")
 
     zip_base = str(ARTIFACTS_DIR / run_id / "model_bundle")

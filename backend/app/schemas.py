@@ -114,14 +114,33 @@ class ValidationSpec(BaseModel):
     n_splits: int = Field(default=5, ge=2, le=10)
 
 
-class RecipeStep(BaseModel):
-    """One declarative preprocessing/feature-engineering step. ``op`` is a plain
-    str in Phase 0 — the curated op enum lands with ml/recipe.py in Phase 1, once
-    there's an actual set of ops to enumerate."""
+RecipeOp = Literal[
+    "drop",
+    "impute",
+    "scale",
+    "encode",
+    "datetime_expand",
+    "log_transform",
+    "power",
+    "clip_outliers",
+    "bin",
+    "arithmetic",
+    "interactions",
+    "group_aggregate",
+    "select",
+    "class_balance",
+    "target_transform",
+]
 
-    op: str
+
+class RecipeStep(BaseModel):
+    """One declarative preprocessing/feature-engineering step. ``op`` is validated
+    against the curated set of ops implemented in ``ml/recipe.py`` (Phase 1)."""
+
+    op: RecipeOp
     columns: list[str] = Field(default_factory=list)
     params: dict[str, Any] = Field(default_factory=dict)
+    description: str | None = None
 
 
 class TuningSpec(BaseModel):

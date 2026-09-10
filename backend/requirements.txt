@@ -9,6 +9,7 @@ prophet>=1.3
 pandas>=2.2
 sqlalchemy>=2.0
 joblib>=1.4
+imbalanced-learn>=0.14
 pyyaml>=6.0
 python-multipart>=0.0.12
 python-dotenv>=1.0

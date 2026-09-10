@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Methodology, Plan, Profile } from "@/lib/api";
+import { RecipeStepRow, REQUIRED_OPS } from "@/components/cards/RecipeSteps";
 
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   pending_approval: { label: "Awaiting approval", cls: "bg-amber-950 text-amber-300" },
@@ -37,6 +38,15 @@ export default function PlanCard({
   const [showExclusions, setShowExclusions] = useState(false);
   const [timeColumn, setTimeColumn] = useState(plan.time_column ?? "");
   const [horizon, setHorizon] = useState(plan.horizon ?? 1);
+
+  const preprocessing = useMemo(
+    () => (plan.preprocessing && plan.preprocessing.length > 0 ? plan.preprocessing : null),
+    [plan.preprocessing],
+  );
+  const [removedSteps, setRemovedSteps] = useState<Set<number>>(new Set());
+  const [showPreprocessing, setShowPreprocessing] = useState(
+    () => (preprocessing?.length ?? 0) <= 6,
+  );
 
   const editable = status === "pending_approval";
   const columns = profile?.columns.map((c) => c.name) ?? [plan.target_column];
@@ -167,6 +177,70 @@ export default function PlanCard({
         )}
       </div>
 
+      {plan.hyperparameters && Object.keys(plan.hyperparameters).length > 0 && (
+        <div className="px-4 pb-3">
+          <div className="mb-1 text-xs text-zinc-400">Pinned hyperparameters</div>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(plan.hyperparameters).map(([k, v]) => (
+              <span
+                key={k}
+                className="rounded-full border border-zinc-700 px-2.5 py-0.5 font-mono text-xs text-zinc-400"
+              >
+                {k}={String(v)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {preprocessing && (
+        <div className="px-4 pb-3">
+          <button
+            onClick={() => setShowPreprocessing(!showPreprocessing)}
+            className="focus-ring-panel rounded text-xs text-zinc-400 transition-colors hover:text-zinc-300"
+          >
+            {showPreprocessing ? "▾" : "▸"} Preprocessing ({preprocessing.length} step
+            {preprocessing.length === 1 ? "" : "s"})
+          </button>
+          {showPreprocessing && (
+            <div className="mt-2 space-y-0.5">
+              {preprocessing.map((step, i) => {
+                const removed = removedSteps.has(i);
+                const removable = editable && !REQUIRED_OPS.has(step.op);
+                return (
+                  <RecipeStepRow
+                    key={i}
+                    index={i}
+                    step={step}
+                    removed={removed}
+                    removable={removable}
+                    onToggleRemove={
+                      editable && !REQUIRED_OPS.has(step.op)
+                        ? () =>
+                            setRemovedSteps((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(i)) next.delete(i);
+                              else next.add(i);
+                              return next;
+                            })
+                        : undefined
+                    }
+                  />
+                );
+              })}
+              {editable && removedSteps.size > 0 && (
+                <button
+                  onClick={() => setRemovedSteps(new Set())}
+                  className="focus-ring-panel mt-1 rounded text-xs text-zinc-400 transition-colors hover:text-zinc-300"
+                >
+                  Reset to proposed
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="px-4 pb-3">
         <button
           onClick={() => setShowExclusions(!showExclusions)}
@@ -277,6 +351,11 @@ export default function PlanCard({
                 primary_metric: metric,
                 excluded_columns: excluded,
                 ...(isForecasting ? { time_column: timeColumn || null, horizon } : {}),
+                ...(preprocessing && removedSteps.size > 0
+                  ? {
+                      preprocessing: preprocessing.filter((_, i) => !removedSteps.has(i)),
+                    }
+                  : {}),
               })
             }
             className="focus-ring-panel rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"

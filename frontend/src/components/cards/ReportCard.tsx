@@ -2,6 +2,7 @@
 
 import { ReactNode } from "react";
 import { api, Diagnostics, DiagnosticsCalibration, DiagnosticsSegment, Results } from "@/lib/api";
+import { ColumnChip, RecipeStepRow } from "@/components/cards/RecipeSteps";
 
 // Chart palette — single source of truth is the token set in globals.css
 // (var(--chart-*)). Constants below just give the SVG/JS call sites a short
@@ -641,6 +642,45 @@ function LeakageCheck({ diagnostics }: { diagnostics: Diagnostics }) {
   return null;
 }
 
+/** Ordered recipe steps actually applied, plus the input→output feature-count summary. */
+function PreprocessingApplied({
+  applied,
+}: {
+  applied: NonNullable<Results["preprocessing_applied"]>;
+}) {
+  const { steps, n_features_in, n_features_out, derived_columns } = applied;
+  const shown = derived_columns.slice(0, 24);
+  const rest = derived_columns.length - shown.length;
+  return (
+    <div className="space-y-3">
+      {steps.length > 0 && (
+        <div className="space-y-0.5">
+          {steps.map((step, i) => (
+            <RecipeStepRow key={i} index={i} step={step} />
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-zinc-400">
+        {n_features_in.toLocaleString()} input column{n_features_in === 1 ? "" : "s"} →{" "}
+        {n_features_out.toLocaleString()} model feature{n_features_out === 1 ? "" : "s"}
+      </p>
+      {derived_columns.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
+            Derived features
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {shown.map((c) => (
+              <ColumnChip key={c}>{c}</ColumnChip>
+            ))}
+            {rest > 0 && <span className="text-xs text-zinc-400">+{rest} more</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ReportCard({ runId, results }: { runId: string; results: Results }) {
   const { holdout } = results;
   const primary = results.primary_metric;
@@ -771,6 +811,17 @@ export default function ReportCard({ runId, results }: { runId: string; results:
             detail={`Top ${Math.min(8, results.feature_importances.filter((i) => i.importance > 0).length)} features by importance`}
           >
             <ImportanceBars items={results.feature_importances} />
+          </Disclosure>
+        )}
+
+        {!isForecasting && results.preprocessing_applied && (
+          <Disclosure
+            summary="Preprocessing applied"
+            detail={`${results.preprocessing_applied.steps.length} step${
+              results.preprocessing_applied.steps.length === 1 ? "" : "s"
+            } · ${results.preprocessing_applied.n_features_in} → ${results.preprocessing_applied.n_features_out} features`}
+          >
+            <PreprocessingApplied applied={results.preprocessing_applied} />
           </Disclosure>
         )}
 

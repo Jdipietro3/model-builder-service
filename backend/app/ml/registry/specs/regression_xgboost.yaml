@@ -27,3 +27,4 @@ model:
       learning_rate: [0.05, 0.1]
 metrics:
   regression: { default: r2, supported: [r2, mae, rmse] }
+feature_ops_allowed: [drop, impute, encode, datetime_expand, log_transform, clip_outliers, bin, arithmetic, group_aggregate, select, class_balance, target_transform]

@@ -252,6 +252,70 @@
     },
     "n_test": 1000,
     "n_train": 4000,
+    "preprocessing_applied": {
+      "derived_columns": [
+        "contract_type_month-to-month",
+        "contract_type_one-year",
+        "contract_type_two-year",
+        "payment_method_bank_transfer",
+        "payment_method_credit_card",
+        "payment_method_electronic_check",
+        "international_plan_no",
+        "international_plan_yes"
+      ],
+      "dropped_columns": [
+        "customer_id"
+      ],
+      "n_features_in": 6,
+      "n_features_out": 11,
+      "steps": [
+        {
+          "columns": [
+            "customer_id"
+          ],
+          "description": null,
+          "op": "drop",
+          "params": {
+            "reason": "excluded in plan"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "impute",
+          "params": {
+            "group": "numeric",
+            "strategy": "median"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "scale",
+          "params": {
+            "method": "standard"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "impute",
+          "params": {
+            "group": "categorical",
+            "strategy": "most_frequent"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "encode",
+          "params": {
+            "max_categories": 30,
+            "method": "onehot"
+          }
+        }
+      ]
+    },
     "primary_metric": "roc_auc",
     "target_column": "churned",
     "task_family": "supervised",
@@ -511,6 +575,62 @@
     },
     "n_test": 1000,
     "n_train": 4000,
+    "preprocessing_applied": {
+      "derived_columns": [
+        "contract_type_month-to-month",
+        "contract_type_one-year",
+        "contract_type_two-year",
+        "payment_method_bank_transfer",
+        "payment_method_credit_card",
+        "payment_method_electronic_check",
+        "international_plan_no",
+        "international_plan_yes"
+      ],
+      "dropped_columns": [
+        "customer_id"
+      ],
+      "n_features_in": 6,
+      "n_features_out": 11,
+      "steps": [
+        {
+          "columns": [
+            "customer_id"
+          ],
+          "description": null,
+          "op": "drop",
+          "params": {
+            "reason": "excluded in plan"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "impute",
+          "params": {
+            "group": "numeric",
+            "strategy": "median"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "impute",
+          "params": {
+            "group": "categorical",
+            "strategy": "most_frequent"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "encode",
+          "params": {
+            "max_categories": 30,
+            "method": "onehot"
+          }
+        }
+      ]
+    },
     "primary_metric": "roc_auc",
     "target_column": "churned",
     "task_family": "supervised",
@@ -709,6 +829,68 @@
     },
     "n_test": 600,
     "n_train": 2400,
+    "preprocessing_applied": {
+      "derived_columns": [
+        "neighborhood_downtown",
+        "neighborhood_rural",
+        "neighborhood_suburbs",
+        "neighborhood_waterfront",
+        "has_garage_no",
+        "has_garage_yes"
+      ],
+      "dropped_columns": [
+        "listing_id"
+      ],
+      "n_features_in": 6,
+      "n_features_out": 10,
+      "steps": [
+        {
+          "columns": [
+            "listing_id"
+          ],
+          "description": null,
+          "op": "drop",
+          "params": {
+            "reason": "excluded in plan"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "impute",
+          "params": {
+            "group": "numeric",
+            "strategy": "median"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "scale",
+          "params": {
+            "method": "standard"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "impute",
+          "params": {
+            "group": "categorical",
+            "strategy": "most_frequent"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "encode",
+          "params": {
+            "max_categories": 30,
+            "method": "onehot"
+          }
+        }
+      ]
+    },
     "primary_metric": "rmse",
     "target_column": "price",
     "task_family": "supervised",
@@ -908,6 +1090,60 @@
     },
     "n_test": 600,
     "n_train": 2400,
+    "preprocessing_applied": {
+      "derived_columns": [
+        "neighborhood_downtown",
+        "neighborhood_rural",
+        "neighborhood_suburbs",
+        "neighborhood_waterfront",
+        "has_garage_no",
+        "has_garage_yes"
+      ],
+      "dropped_columns": [
+        "listing_id"
+      ],
+      "n_features_in": 6,
+      "n_features_out": 10,
+      "steps": [
+        {
+          "columns": [
+            "listing_id"
+          ],
+          "description": null,
+          "op": "drop",
+          "params": {
+            "reason": "excluded in plan"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "impute",
+          "params": {
+            "group": "numeric",
+            "strategy": "median"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "impute",
+          "params": {
+            "group": "categorical",
+            "strategy": "most_frequent"
+          }
+        },
+        {
+          "columns": [],
+          "description": null,
+          "op": "encode",
+          "params": {
+            "max_categories": 30,
+            "method": "onehot"
+          }
+        }
+      ]
+    },
     "primary_metric": "rmse",
     "target_column": "price",
     "task_family": "supervised",

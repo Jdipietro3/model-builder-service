@@ -18,12 +18,13 @@ from typing import Any, Callable, Literal, get_type_hints
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session
 
+from ..ml import recipe as recipe_mod
 from ..ml.plans import diagnose_plan, validate_plan
-from ..ml.profiling import profile_path
+from ..ml.profiling import load_csv, profile_path
 from ..ml.registry.loader import get_spec, list_methodologies
 from ..models import Dataset, Project, Run
 from ..retrain import NoNewerDataError, retrain_run
-from ..schemas import DataShape, TaskFamily, TaskType
+from ..schemas import DataShape, RecipeOp, TaskFamily, TaskType
 
 # ---------------------------------------------------------------------------
 # Tool input models
@@ -48,6 +49,12 @@ class ListMethodologiesInput(ToolInput):
         default=None,
         description="Filter by task family (supervised, forecasting, clustering, anomaly)",
     )
+
+
+class RecipeStepInput(ToolInput):
+    op: RecipeOp
+    columns: list[str] = Field(default_factory=list)
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProposePlanInput(ToolInput):
@@ -81,6 +88,17 @@ class ProposePlanInput(ToolInput):
         default=None,
         description="Usually omitted — derived from the chosen methodology.",
     )
+    preprocessing: list[RecipeStepInput] | None = Field(
+        default=None,
+        description="Optional preprocessing recipe. Omit to use the server's default recipe "
+        "(returned in the result). When given, it REPLACES the default entirely, so include "
+        "impute/encode steps.",
+    )
+    hyperparameters: dict[str, Any] | None = Field(
+        default=None,
+        description="Pinned model params applied instead of the grid for those keys; only "
+        "keys from the methodology's params/grid.",
+    )
     reasoning: str = Field(
         description="Why this framing and methodology fit, citing data characteristics."
     )
@@ -111,6 +129,13 @@ class ProposeTournamentInput(ToolInput):
     )
     n_splits: int = Field(default=5, ge=2, le=10)
     primary_metric: str
+    preprocessing: list[RecipeStepInput] | None = Field(
+        default=None,
+        description="Optional preprocessing recipe shared by every candidate. Omit to give "
+        "each candidate its own default recipe. When given, it REPLACES the default entirely "
+        "for every candidate (a candidate whose feature_ops_allowed rejects one of the steps "
+        "fails validation and is named in the error).",
+    )
     ensemble: Literal["blend", "stacking", "none"] = Field(
         description="Whether to auto-build a weighted blend or a stacked meta-model from the "
         "completed candidates once they finish. Only valid for supervised tournaments — use "
@@ -136,6 +161,16 @@ class RetrainRunInput(ToolInput):
 class SetRecommendationInput(ToolInput):
     run_id: str
     reason: str
+
+
+class PreviewRecipeInput(ToolInput):
+    dataset_id: str
+    target_column: str
+    task_type: TaskType
+    methodology_id: str
+    primary_metric: str
+    excluded_columns: list[str] = Field(default_factory=list)
+    preprocessing: list[RecipeStepInput] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +366,13 @@ def profile_dataset(db: Session, project_id: str, args: ProfileDatasetInput):
     "task_family, when-to-use guidance, and supported metrics.",
 )
 def list_methodologies_tool(db: Session, project_id: str, args: ListMethodologiesInput):
-    return list_methodologies(args.task_type, args.data_shape, args.task_family), None
+    specs = list_methodologies(args.task_type, args.data_shape, args.task_family)
+    result = []
+    for spec in specs:
+        spec = dict(spec)
+        spec["feature_ops_allowed"] = spec.get("feature_ops_allowed") or "all"
+        result.append(spec)
+    return result, None
 
 
 @tool(
@@ -363,6 +404,9 @@ def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
         validation = {"n_splits": args.n_splits, "strategy": "time_ordered"}
     else:
         validation = {"n_splits": args.n_splits}
+    preprocessing = (
+        [s.model_dump() for s in args.preprocessing] if args.preprocessing is not None else None
+    )
     plan_data = {
         "task_type": args.task_type,
         "data_shape": data_shape,
@@ -375,10 +419,20 @@ def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
         "validation": validation,
         "primary_metric": args.primary_metric,
         "reasoning": args.reasoning,
+        "preprocessing": preprocessing,
+        "hyperparameters": args.hyperparameters,
     }
     plan, errors = validate_plan(plan_data, dataset.profile)
     if errors:
         return {"error": "Plan validation failed", "details": errors}, None
+    recipe_summary: list[str] = []
+    if task_family == "supervised":
+        try:
+            resolved = recipe_mod.resolve_recipe(plan, dataset.profile or {}, spec)
+        except ValueError as e:
+            return {"error": "Recipe invalid", "details": [str(e)]}, None
+        plan["preprocessing"] = resolved
+        recipe_summary = [step["description"] for step in resolved]
     # Non-blocking pre-approval warnings (leakage, target missingness, near-constant
     # features) ride on the plan so both the LLM and the plan card see them.
     warnings = diagnose_plan(plan, dataset.profile or {})
@@ -393,7 +447,10 @@ def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
         "dataset_filename": dataset.filename,
         "plan": plan,
     }
-    return {"run_id": run.id, "status": "pending_approval", "plan": plan, "warnings": warnings}, card
+    result = {"run_id": run.id, "status": "pending_approval", "plan": plan, "warnings": warnings}
+    if recipe_summary:
+        result["recipe_summary"] = recipe_summary
+    return result, card
 
 
 @tool(
@@ -453,6 +510,10 @@ def propose_tournament(db: Session, project_id: str, args: ProposeTournamentInpu
     else:
         validation = {"n_splits": args.n_splits}
 
+    preprocessing = (
+        [s.model_dump() for s in args.preprocessing] if args.preprocessing is not None else None
+    )
+
     # Validate every candidate plan BEFORE persisting anything — all-or-nothing.
     validated_plans: list[dict] = []
     for mid in methodology_ids:
@@ -469,6 +530,7 @@ def propose_tournament(db: Session, project_id: str, args: ProposeTournamentInpu
             "validation": validation,
             "primary_metric": args.primary_metric,
             "reasoning": args.reasoning,
+            "preprocessing": preprocessing,
         }
         plan, errors = validate_plan(plan_data, dataset.profile)
         if errors:
@@ -476,6 +538,15 @@ def propose_tournament(db: Session, project_id: str, args: ProposeTournamentInpu
                 "error": f"Plan validation failed for candidate '{mid}'",
                 "details": errors,
             }, None
+        if spec["task_family"] == "supervised":
+            try:
+                resolved = recipe_mod.resolve_recipe(plan, dataset.profile or {}, spec)
+            except ValueError as e:
+                return {
+                    "error": f"Recipe invalid for candidate '{mid}'",
+                    "details": [str(e)],
+                }, None
+            plan["preprocessing"] = resolved
         validated_plans.append(plan)
 
     tournament_id = uuid.uuid4().hex
@@ -548,6 +619,50 @@ def propose_tournament(db: Session, project_id: str, args: ProposeTournamentInpu
         "status": "pending_approval",
     }
     return result, card
+
+
+@tool(
+    "preview_recipe",
+    "Cheaply try a preprocessing recipe before proposing: fits on <=5k rows with default "
+    "params and returns feature counts, derived/dropped columns and a quick 3-fold CV score. "
+    "Use it to compare at most two variants (e.g. default vs. one with datetime expansion or "
+    "target encoding) — do not loop on it. Supervised task types only.",
+)
+def preview_recipe_tool(db: Session, project_id: str, args: PreviewRecipeInput):
+    dataset = db.get(Dataset, args.dataset_id)
+    if not dataset or dataset.project_id != project_id:
+        return {"error": "Dataset not found in this project"}, None
+    try:
+        spec = get_spec(args.methodology_id)
+    except KeyError as e:
+        return {"error": str(e)}, None
+    if spec["task_family"] != "supervised":
+        return {
+            "error": f"preview_recipe only supports supervised methodologies "
+            f"(got task_family '{spec['task_family']}' for '{args.methodology_id}')"
+        }, None
+
+    preprocessing = (
+        [s.model_dump() for s in args.preprocessing] if args.preprocessing is not None else None
+    )
+    plan_data = {
+        "task_type": args.task_type,
+        "data_shape": spec["data_shape"],
+        "task_family": spec["task_family"],
+        "target_column": args.target_column,
+        "methodology_id": args.methodology_id,
+        "excluded_columns": args.excluded_columns,
+        "primary_metric": args.primary_metric,
+        "reasoning": "preview",
+        "preprocessing": preprocessing,
+    }
+    plan, errors = validate_plan(plan_data, dataset.profile)
+    if errors:
+        return {"error": "Plan validation failed", "details": errors}, None
+
+    df = load_csv(dataset.path)
+    result = recipe_mod.preview_recipe(df, plan, spec, dataset.profile or {})
+    return result, None
 
 
 @tool("get_run_status", "Get the current status and progress of a training run.")

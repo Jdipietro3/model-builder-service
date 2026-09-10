@@ -93,6 +93,38 @@ export interface PlanWarning {
   columns: string[];
 }
 
+// Phase 1 addition: one step of the preprocessing/feature-engineering recipe.
+export interface RecipeStep {
+  op:
+    | "drop"
+    | "impute"
+    | "scale"
+    | "encode"
+    | "datetime_expand"
+    | "log_transform"
+    | "power"
+    | "clip_outliers"
+    | "bin"
+    | "arithmetic"
+    | "interactions"
+    | "group_aggregate"
+    | "select"
+    | "class_balance"
+    | "target_transform";
+  columns: string[]; // empty = "applies to the auto-selected column group"
+  params: Record<string, unknown>;
+  // Server-filled plain-English sentence; always present on plans the server resolved.
+  description?: string | null;
+}
+
+// Phase 1 addition: tuning strategy for the run.
+export interface TuningSpec {
+  strategy: "none" | "grid" | "random" | "bayesian";
+  n_trials: number;
+  time_budget_s?: number | null;
+  cv_splits?: number | null;
+}
+
 export interface Plan {
   task_type: string;
   target_column: string;
@@ -110,6 +142,12 @@ export interface Plan {
   base_run_ids?: string[] | null;
   // Non-blocking pre-approval warnings (leakage, missingness, near-constant features).
   warnings?: PlanWarning[];
+  // Phase 1 additions. All optional/nullable; absent on runs created before
+  // Phase 1. null/absent preprocessing means "server default recipe".
+  preprocessing?: RecipeStep[] | null;
+  hyperparameters?: Record<string, unknown> | null;
+  tuning?: TuningSpec | null;
+  revision_of_run_id?: string | null;
 }
 
 export interface Card {
@@ -250,6 +288,20 @@ export interface Results {
   history_tail?: HistoryTail;
   // Ensemble-only.
   ensemble?: EnsembleInfo;
+  // Phase 1 addition. Absent on runs trained before this change and on
+  // forecasting/ensemble runs.
+  preprocessing_applied?: {
+    steps: {
+      op: string;
+      columns: string[];
+      params: Record<string, unknown>;
+      description?: string | null;
+    }[];
+    n_features_in: number;
+    n_features_out: number;
+    derived_columns: string[]; // engineered feature names (may be capped at 200)
+    dropped_columns: string[];
+  } | null;
 }
 
 export interface Run {
