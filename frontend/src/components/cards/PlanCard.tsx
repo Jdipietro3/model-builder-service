@@ -72,6 +72,93 @@ export default function PlanCard({
   const isBand = variant === "band";
   const sidePad = isBand ? "" : "px-4";
 
+  const planSummaryGrid = (
+    <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+      <div>
+        <div className="mb-1 text-label text-zinc-400">Task</div>
+        <div className="text-body text-zinc-200">{plan.task_type.replace(/_/g, " ")}</div>
+      </div>
+      <div>
+        <div className="mb-1 text-label text-zinc-400">Target column</div>
+        <select
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          disabled={!editable}
+          className={selectCls}
+        >
+          {columns.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <div className="mb-1 text-label text-zinc-400">Methodology</div>
+        <select
+          value={methodologyId}
+          onChange={(e) => pickMethodology(e.target.value)}
+          disabled={!editable}
+          className={selectCls}
+        >
+          {compatible.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.display_name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <div className="mb-1 text-label text-zinc-400">Optimize for</div>
+        <select
+          value={metric}
+          onChange={(e) => setMetric(e.target.value)}
+          disabled={!editable}
+          className={selectCls}
+        >
+          {supportedMetrics.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+      </div>
+      {isForecasting && (
+        <div>
+          <div className="mb-1 text-label text-zinc-400">Time column</div>
+          <select
+            value={timeColumn}
+            onChange={(e) => setTimeColumn(e.target.value)}
+            disabled={!editable}
+            className={selectCls}
+          >
+            {timeColumnOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {isForecasting && (
+        <div>
+          <div className="mb-1 text-label text-zinc-400">Horizon (periods to forecast)</div>
+          <input
+            type="number"
+            min={1}
+            value={horizon}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              setHorizon(Number.isNaN(v) ? 1 : Math.max(1, v));
+            }}
+            disabled={!editable}
+            className={selectCls}
+          />
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className={isBand ? "" : "overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80"}>
       <div className={`flex items-center justify-between border-b border-zinc-800 py-3 ${sidePad}`}>
@@ -91,103 +178,31 @@ export default function PlanCard({
       </div>
 
       <div className={`py-3 ${sidePad}`}>
-        {/* Open while the run is awaiting approval — these selects are the
-            thing the user must act on. Once a run has moved past that, the
-            plan is fixed and this becomes reference, so it starts closed. */}
-        <Disclosure
-          summary="Plan summary"
-          meta={`${plan.task_type.replace(/_/g, " ")} · ${chosen?.display_name ?? methodologyId}`}
-          defaultOpen={editable}
-        >
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-            <div>
-              <div className="mb-1 text-label text-zinc-400">Task</div>
-              <div className="text-body text-zinc-200">{plan.task_type.replace(/_/g, " ")}</div>
-            </div>
-            <div>
-              <div className="mb-1 text-label text-zinc-400">Target column</div>
-              <select
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                disabled={!editable}
-                className={selectCls}
-              >
-                {columns.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <div className="mb-1 text-label text-zinc-400">Methodology</div>
-              <select
-                value={methodologyId}
-                onChange={(e) => pickMethodology(e.target.value)}
-                disabled={!editable}
-                className={selectCls}
-              >
-                {compatible.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.display_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <div className="mb-1 text-label text-zinc-400">Optimize for</div>
-              <select
-                value={metric}
-                onChange={(e) => setMetric(e.target.value)}
-                disabled={!editable}
-                className={selectCls}
-              >
-                {supportedMetrics.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {isForecasting && (
-              <div>
-                <div className="mb-1 text-label text-zinc-400">Time column</div>
-                <select
-                  value={timeColumn}
-                  onChange={(e) => setTimeColumn(e.target.value)}
-                  disabled={!editable}
-                  className={selectCls}
-                >
-                  {timeColumnOptions.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {isForecasting && (
-              <div>
-                <div className="mb-1 text-label text-zinc-400">Horizon (periods to forecast)</div>
-                <input
-                  type="number"
-                  min={1}
-                  value={horizon}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    setHorizon(Number.isNaN(v) ? 1 : Math.max(1, v));
-                  }}
-                  disabled={!editable}
-                  className={selectCls}
-                />
-              </div>
-            )}
+        {/* Two structurally different renderings, not one Disclosure with a
+            forced-open default. While the run is awaiting approval these
+            selects are the thing the user has to act on, so it's a plain
+            inline section — brief heading, no triangle, nothing to expand.
+            Once approved the plan is fixed reference, so it becomes an
+            ordinary collapsed Disclosure like every other section here. */}
+        {editable ? (
+          <div>
+            <h3 className="mb-3 text-label font-medium uppercase tracking-wide text-zinc-400">
+              Plan summary
+            </h3>
+            {planSummaryGrid}
           </div>
-        </Disclosure>
+        ) : (
+          <Disclosure
+            summary="Plan summary"
+            meta={`${plan.task_type.replace(/_/g, " ")} · ${chosen?.display_name ?? methodologyId}`}
+          >
+            {planSummaryGrid}
+          </Disclosure>
+        )}
       </div>
 
       <div className={`pb-3 ${sidePad}`}>
-        <Disclosure summary="Excluded columns" meta={`${excluded.length}`} tone="label">
+        <Disclosure summary="Excluded columns" meta={`${excluded.length}`}>
           {profile && (
             <div className="flex flex-wrap gap-1.5">
               {profile.columns
@@ -261,7 +276,7 @@ export default function PlanCard({
       {plan.reasoning && (
         <div className={`border-t border-zinc-800 py-3 ${sidePad}`}>
           <div className="border-l-2 border-accent-line pl-3">
-            <div className="mb-1 text-label font-medium text-accent">Why this plan</div>
+            <div className="mb-1 text-title font-medium text-accent">Why this plan</div>
             <p className="measure text-body leading-relaxed text-zinc-200">{plan.reasoning}</p>
           </div>
         </div>

@@ -153,11 +153,7 @@ function StatsPanel({ deploymentId }: { deploymentId: string }) {
           No prediction requests yet — run the live tester below to populate serving stats.
         </p>
       ) : (
-        <Disclosure
-          tone="label"
-          summary="Served vs. training distribution"
-          meta="drift indicator"
-        >
+        <Disclosure summary="Served vs. training distribution" meta="drift indicator">
           <p className="measure mb-2 text-label text-zinc-400">
             Population comparison, not a statistical test — a quick eyeball check for whether
             live traffic looks like the data this model trained on.
@@ -217,7 +213,7 @@ function PromoteSection({
 
   return (
     <div className="border-t border-zinc-800 pt-4">
-      <Disclosure tone="label" summary="Switch serving model">
+      <Disclosure summary="Switch serving model">
         <div className="space-y-2.5">
           <p className="measure text-label text-zinc-400">
             Point this deployment at a different completed run — not the one you&rsquo;re currently
@@ -450,7 +446,6 @@ export default function DeploymentCard({
 
       <div>
         <Disclosure
-          tone="label"
           summary="Input contract"
           meta={`${featureCount} feature${featureCount === 1 ? "" : "s"}`}
         >

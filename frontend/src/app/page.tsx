@@ -69,7 +69,11 @@ export default function Home() {
       <main className="flex min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-16">
         <div className="w-full max-w-2xl">
           <h1 className="flex items-center gap-2.5 text-display font-semibold tracking-tight">
-            <MetisMark size={30} className="text-accent" />
+            {/* size=30 (matching the text-display font-size) was tuned for the
+                old square mark. The eye is 1.86:1, so 30 now renders ~56px
+                wide — noticeably wider than the "M" it sits beside. 24px tall
+                (~45px wide) reads as the same visual weight as the text. */}
+            <MetisMark size={24} className="text-accent" />
             Metis
           </h1>
           <p className="measure mt-2 text-body text-zinc-400">

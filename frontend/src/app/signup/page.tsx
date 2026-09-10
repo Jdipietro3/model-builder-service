@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useProjects } from "@/lib/projects-context";
 import { extractErrorDetail } from "@/lib/errors";
-import MetisMark from "@/components/MetisMark";
+import MetisLockup from "@/components/MetisLockup";
 import GlyphField from "@/components/GlyphField";
 
 /** apiFetch/json both throw `${status}: ${body}` (see lib/api.ts) — a stable
@@ -55,9 +55,10 @@ export default function SignupPage() {
       <GlyphField />
 
       <div className="relative z-10 w-full max-w-sm rounded-xl border border-accent-edge bg-zinc-950 p-8">
-        <div className="flex items-center justify-center gap-2">
-          <MetisMark size={28} className="text-accent" />
-          <span className="text-headline font-semibold tracking-tight text-zinc-100">Metis</span>
+        <div className="flex items-center justify-center">
+          {/* The lockup carries the wordmark itself, so the card no longer
+              needs a separate "Metis" span next to it. */}
+          <MetisLockup size={40} className="text-accent" />
         </div>
 
         <h1 className="mt-8 text-display font-semibold tracking-tight">Create account</h1>

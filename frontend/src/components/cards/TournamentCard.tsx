@@ -131,8 +131,12 @@ export default function TournamentCard({
 
       {reasoning && (
         <div className="border-t border-zinc-800 px-4 py-3">
-          <div className="mb-1 text-xs font-medium text-zinc-400">Why this tournament</div>
-          <p className="measure text-sm leading-relaxed text-zinc-400">{reasoning}</p>
+          {/* text-title outranks text-body so the heading actually reads as a
+              heading, rather than being smaller than the text it introduces. */}
+          <div className="border-l-2 border-accent-line pl-3">
+            <div className="mb-1 text-title font-medium text-accent">Why this tournament</div>
+            <p className="measure text-body leading-relaxed text-zinc-200">{reasoning}</p>
+          </div>
         </div>
       )}
 

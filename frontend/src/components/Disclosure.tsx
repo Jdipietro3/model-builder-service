@@ -20,6 +20,15 @@
  * `meta` renders on the summary row and stays visible while closed. Use it so a
  * shut section still answers the obvious question — how many keys, how many
  * columns — without needing to be opened.
+ *
+ * The summary row has exactly one visual treatment — deliberately. This used
+ * to take a `tone` prop switching between a title-size and a label-size
+ * summary, and that is exactly how the format drifted: nine call sites used
+ * one tone, three used the other, and nothing enforced either choice. If a
+ * section is important enough to want the louder title treatment, the fix is
+ * to not make it a Disclosure at all (see ReportCard's "Diagnostics — trust
+ * check" and PlanCard's "Why this plan") — not to reach for a second tone
+ * here. Uniformity has to be structural, not a convention people remember.
  */
 
 import { ReactNode, useId, useState } from "react";
@@ -33,7 +42,6 @@ export default function Disclosure({
   onOpenChange,
   className = "",
   summaryClassName = "",
-  tone = "title",
 }: {
   summary: ReactNode;
   /** Stays visible while collapsed — a count, a status, a short hint. */
@@ -45,18 +53,13 @@ export default function Disclosure({
   onOpenChange?: (open: boolean) => void;
   className?: string;
   summaryClassName?: string;
-  /** `title` for a section heading, `label` for a smaller subsection. */
-  tone?: "title" | "label";
 }) {
   const id = useId();
   const controlled = open !== undefined;
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const isOpen = controlled ? open : internalOpen;
 
-  const summaryTone =
-    tone === "title"
-      ? "text-title font-medium text-zinc-100"
-      : "text-label font-medium uppercase tracking-wide text-zinc-400";
+  const summaryTone = "text-label font-medium uppercase tracking-wide text-zinc-400";
 
   return (
     <details

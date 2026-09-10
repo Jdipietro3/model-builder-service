@@ -1,35 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- The Metis mark: an asterisk (the moment of counsel) above an open eye
-       (the foresight it produces).
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="56 -284 1860 1860" width="64" height="64">
+  <!-- The Metis mark: an asterisk set inside an open eye.
 
        This file is the browser-tab icon, picked up by Next's app/icon.svg
-       convention. Unlike the inline <MetisMark>, it paints its own near-black
-       rounded-square ground rather than sitting on transparency: a favicon has
-       to survive on light and dark browser chrome alike, and a bare amber mark
-       on transparent disappears against a light tab bar.
+       convention (no metadata.icons entry is needed, and there is no
+       favicon.ico in this app to compete with it).
 
-       Drawn with wide strokes and only three elements on purpose. At the 16px
-       the tab actually renders, anything finer turns to mush. -->
-  <rect width="64" height="64" rx="13" fill="#09090b" />
+       Geometry is transcribed from the supplied artwork in its own 2000x2000
+       coordinate space, so it matches <MetisMark> exactly — same lens curve,
+       same iris, same asterisk. The viewBox is a 1860px square centred on the
+       eye at (986, 646), which leaves a ~10% margin on each side.
 
-  <g stroke="#edb55c" fill="none">
-    <!-- Asterisk: three lines through one center, 60 degrees apart, one of them
-         vertical. Round caps so it reads as a star rather than a hash. -->
-    <g stroke-width="4.2" stroke-linecap="round">
-      <line x1="32" y1="9" x2="32" y2="27" />
-      <line x1="24.2" y1="13.5" x2="39.8" y2="22.5" />
-      <line x1="24.2" y1="22.5" x2="39.8" y2="13.5" />
-    </g>
+       Two deliberate differences from the inline <MetisMark>:
+
+       1. It paints its own near-black rounded-square ground. A favicon has to
+          survive on light and dark browser chrome alike, and a bare amber mark
+          on transparency disappears against a light tab bar.
+
+       2. The iris and asterisk are PAINTED in the ground color rather than
+          masked. The inline component knocks them out so it can sit on any
+          surface, but here the surface is known, and a flat three-shape file
+          survives a renderer that flattens masks — which some favicon
+          rasterisers do.
+
+       Only three elements, drawn wide. At the 16px a tab actually renders,
+       anything finer turns to mush. -->
+  <rect x="56" y="-284" width="1860" height="1860" rx="378" fill="#09090b" />
+
+  <!-- Lens. A quadratic, not a circular arc: a true circular lens fitted to
+       the same endpoints and apex misses the measured edge by up to 24px on
+       the flanks, where this tracks it within 2.2px. -->
+  <path d="M254 646 Q986 -142 1718 646 Q986 1434 254 646 Z" fill="#d08f2c" />
+
+  <circle cx="986" cy="648" r="288" fill="#09090b" />
+
+  <!-- Asterisk: three bars through one centre, 60 degrees apart, one vertical.
+       Butt caps, matching the source artwork. -->
+  <g fill="#d08f2c">
+    <rect x="940" y="432" width="93" height="428" />
+    <rect x="940" y="432" width="93" height="428" transform="rotate(60 986 646)" />
+    <rect x="940" y="432" width="93" height="428" transform="rotate(120 986 646)" />
   </g>
-
-  <!-- Eye. Solid almond, with the iris cut out back to the ground color and a
-       solid pupil floated inside it — the same figure/ground alternation as the
-       source mark, achieved without a mask so it stays legible if a renderer
-       flattens the file. -->
-  <path
-    d="M6 44 Q32 22 58 44 Q32 66 6 44 Z"
-    fill="#edb55c"
-  />
-  <circle cx="32" cy="44" r="10.5" fill="#09090b" />
-  <circle cx="32" cy="44" r="5.4" fill="#edb55c" />
 </svg>

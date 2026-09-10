@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useProjects } from "@/lib/projects-context";
 import MetisMark from "@/components/MetisMark";
+import MetisLockup from "@/components/MetisLockup";
 import { RailCollapsedProvider } from "@/components/rail-context";
 import { ListIcon, PlusIcon, UserIcon, SignOutIcon, PanelToggleIcon } from "@/components/RailIcons";
 
@@ -99,12 +100,21 @@ export default function Sidebar({ nav }: { nav?: React.ReactNode }) {
         }`}
       >
         <div
-          className={`flex shrink-0 items-center border-b border-zinc-800 py-3 ${
-            collapsed ? "justify-center px-2" : "gap-1.5 px-4"
+          className={`flex shrink-0 items-center border-b border-zinc-800 ${
+            // The collapsed rail carries only the eye and keeps the old py-3 —
+            // that vertical rhythm was already tuned for a 16px glyph. Expanded
+            // now carries the full lockup (wordmark included, so the bare
+            // "Metis" span is gone), which is taller than the old mark; py-2.5
+            // trims the row back down so the header reads as deliberately
+            // proportioned rather than padded for a smaller logo.
+            collapsed ? "justify-center px-2 py-3" : "px-4 py-2.5"
           }`}
         >
-          <MetisMark size={16} className="text-accent" />
-          {!collapsed && <span className="text-label font-medium text-zinc-300">Metis</span>}
+          {collapsed ? (
+            <MetisMark size={18} className="text-accent" />
+          ) : (
+            <MetisLockup size={28} className="text-accent" />
+          )}
         </div>
 
         {/* The toggle heads the column in both states, and sits in the header

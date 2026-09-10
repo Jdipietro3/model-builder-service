@@ -140,7 +140,7 @@ function EndpointPanel({ deployment }: { deployment: Deployment }) {
         </ol>
       </div>
 
-      <Disclosure tone="title" summary="Calling this endpoint">
+      <Disclosure summary="Calling this endpoint">
         <div className="space-y-4">
           <p className="measure text-label leading-relaxed text-zinc-400">
             Requests require an API key. Create one below and send it as{" "}
@@ -183,7 +183,6 @@ function EndpointPanel({ deployment }: { deployment: Deployment }) {
       </Disclosure>
 
       <Disclosure
-        tone="label"
         summary="API keys"
         meta={keysSummary}
         open={keysOpen}

@@ -124,8 +124,6 @@ function MetricGlossary({ metrics }: { metrics: string[] }) {
     <Disclosure
       summary="What these metrics mean"
       meta="Plain-language definitions for the tiles above"
-      tone="label"
-      defaultOpen
       className="border-t border-zinc-800 pt-4"
     >
       {/* `measure` sits on the element that carries the font size, not the <dl>:
@@ -569,7 +567,8 @@ function CalibrationView({ calibration }: { calibration: DiagnosticsCalibration 
   );
 }
 
-/** Leakage / single-feature trust check — the content of the default-open diagnostics disclosure. */
+/** Leakage / single-feature trust check. Rendered inline and always visible —
+ *  never inside a Disclosure, for the reason given at its call site. */
 function LeakageCheck({ diagnostics }: { diagnostics: Diagnostics }) {
   const { single_feature } = diagnostics;
   const leaky = single_feature.filter((f) => f.ratio >= 0.95);
@@ -679,23 +678,13 @@ export default function ReportCard({
           {isForecasting ? "backtest folds" : "folds"}.
         </p>
 
-        <MetricGlossary metrics={[primary, ...secondary]} />
+        {/* Below this point the section order is a deliberate layman-first
+            ranking, not source order: the things someone who can code but
+            doesn't know ML needs to see stay open and brief, then the
+            dropdowns follow in descending order of how likely a first-time
+            reader is to want them. */}
 
         {isForecasting && <ForecastChart results={results} />}
-
-        {!isForecasting && holdout.confusion_matrix && (
-          <Disclosure
-            summary="Confusion matrix"
-            meta={`${holdout.confusion_matrix.matrix.length}×${holdout.confusion_matrix.matrix[0]?.length ?? 0}`}
-            tone="label"
-            className="border-t border-zinc-800 pt-4"
-          >
-            <ConfusionMatrix
-              labels={holdout.confusion_matrix.labels}
-              matrix={holdout.confusion_matrix.matrix}
-            />
-          </Disclosure>
-        )}
 
         {!isForecasting && holdout.residuals && (
           <div>
@@ -713,63 +702,28 @@ export default function ReportCard({
 
         {/* Leakage / data-quality findings stay permanently visible, not inside a
             Disclosure: these are warnings that the model itself may be wrong, and
-            hiding a correctness warning behind a click is how a leaked model ships. */}
+            hiding a correctness warning behind a click is how a leaked model ships.
+            The heading itself is deliberately NOT shaped like a Disclosure summary
+            row (no triangle, no hover affordance, meta stacked underneath rather
+            than pushed to the right) — that resemblance is exactly what made this
+            block read as a collapsible dropdown when it isn't one. The status dot
+            borrows the instrument-panel status-dot vocabulary instead. */}
         {hasLeakageCheck && diagnostics && (
           <div className="border-t border-zinc-800 pt-4">
-            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <div className="mb-1.5 flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${leakyCount > 0 ? "bg-alarm" : "bg-zinc-400"}`}
+              />
               <h4 className="text-title font-medium text-zinc-100">Diagnostics — trust check</h4>
-              <span className="text-label text-zinc-400">
-                {leakyCount > 0
-                  ? `${leakyCount} feature${leakyCount > 1 ? "s" : ""} may be leaking the answer`
-                  : "No single feature dominates — looks trustworthy"}
-              </span>
             </div>
+            <p className="mb-2 text-label text-zinc-400">
+              {leakyCount > 0
+                ? `${leakyCount} feature${leakyCount > 1 ? "s" : ""} may be leaking the answer`
+                : "No single feature dominates — looks trustworthy"}
+            </p>
             <LeakageCheck diagnostics={diagnostics} />
           </div>
-        )}
-
-        {hasSegments && diagnostics && (
-          <Disclosure
-            summary="Per-segment breakdown"
-            meta={`Performance across ${diagnostics.segments.length} column${diagnostics.segments.length > 1 ? "s" : ""} — weakest subgroup highlighted`}
-            tone="label"
-            className="border-t border-zinc-800 pt-4"
-          >
-            <div className="space-y-3">
-              {diagnostics.segments.map((s) => (
-                <SegmentTable key={s.column} segment={s} />
-              ))}
-            </div>
-          </Disclosure>
-        )}
-
-        {hasCalibration && diagnostics?.calibration && (
-          <Disclosure
-            summary="Calibration"
-            meta={`Brier ${fmt(diagnostics.calibration.brier)}`}
-            tone="label"
-            className="border-t border-zinc-800 pt-4"
-          >
-            <CalibrationView calibration={diagnostics.calibration} />
-          </Disclosure>
-        )}
-
-        {!isForecasting && results.feature_importances && results.feature_importances.length > 0 && (
-          <Disclosure
-            summary="What drives predictions"
-            meta={`${Math.min(8, results.feature_importances.filter((i) => i.importance > 0).length)} features`}
-            tone="label"
-            className="border-t border-zinc-800 pt-4"
-          >
-            <ImportanceBars items={results.feature_importances} />
-          </Disclosure>
-        )}
-
-        {!isForecasting && results.features_dropped && results.features_dropped.length > 0 && (
-          <p className="text-xs text-zinc-400">
-            Not used as features:{" "}
-            {results.features_dropped.map((f) => `${f.name} (${f.reason})`).join(", ")}
-          </p>
         )}
 
         {results.caveats.length > 0 && (
@@ -784,6 +738,66 @@ export default function ReportCard({
               ))}
             </ul>
           </div>
+        )}
+
+        {!isForecasting && results.features_dropped && results.features_dropped.length > 0 && (
+          <p className="text-xs text-zinc-400">
+            Not used as features:{" "}
+            {results.features_dropped.map((f) => `${f.name} (${f.reason})`).join(", ")}
+          </p>
+        )}
+
+        {/* From here down: the dropdowns, ordered by how likely a layman-first
+            reader is to want each one — glossary first, confusion/calibration
+            (the most ML-jargon-heavy views) last. */}
+
+        <MetricGlossary metrics={[primary, ...secondary]} />
+
+        {!isForecasting && results.feature_importances && results.feature_importances.length > 0 && (
+          <Disclosure
+            summary="What drives predictions"
+            meta={`${Math.min(8, results.feature_importances.filter((i) => i.importance > 0).length)} features`}
+            className="border-t border-zinc-800 pt-4"
+          >
+            <ImportanceBars items={results.feature_importances} />
+          </Disclosure>
+        )}
+
+        {hasSegments && diagnostics && (
+          <Disclosure
+            summary="Per-segment breakdown"
+            meta={`Performance across ${diagnostics.segments.length} column${diagnostics.segments.length > 1 ? "s" : ""} — weakest subgroup highlighted`}
+            className="border-t border-zinc-800 pt-4"
+          >
+            <div className="space-y-3">
+              {diagnostics.segments.map((s) => (
+                <SegmentTable key={s.column} segment={s} />
+              ))}
+            </div>
+          </Disclosure>
+        )}
+
+        {!isForecasting && holdout.confusion_matrix && (
+          <Disclosure
+            summary="Confusion matrix"
+            meta={`${holdout.confusion_matrix.matrix.length}×${holdout.confusion_matrix.matrix[0]?.length ?? 0}`}
+            className="border-t border-zinc-800 pt-4"
+          >
+            <ConfusionMatrix
+              labels={holdout.confusion_matrix.labels}
+              matrix={holdout.confusion_matrix.matrix}
+            />
+          </Disclosure>
+        )}
+
+        {hasCalibration && diagnostics?.calibration && (
+          <Disclosure
+            summary="Calibration"
+            meta={`Brier ${fmt(diagnostics.calibration.brier)}`}
+            className="border-t border-zinc-800 pt-4"
+          >
+            <CalibrationView calibration={diagnostics.calibration} />
+          </Disclosure>
         )}
       </div>
     </div>
