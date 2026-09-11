@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { api, Diagnostics, DiagnosticsCalibration, DiagnosticsSegment, Results } from "@/lib/api";
 import { ColumnChip, RecipeStepRow } from "@/components/cards/RecipeSteps";
 
@@ -681,6 +681,185 @@ function PreprocessingApplied({
   );
 }
 
+const TUNING_STRATEGY_LABELS: Record<string, string> = {
+  none: "No tuning",
+  grid: "Grid",
+  random: "Random",
+  bayesian: "Bayesian (Optuna)",
+};
+
+/** Round to 4 significant digits for compact display; non-numbers pass through as strings. */
+function formatParamValue(v: unknown): string {
+  if (typeof v === "number") {
+    if (!Number.isFinite(v)) return String(v);
+    if (v === 0) return "0";
+    return Number(v.toPrecision(4)).toString();
+  }
+  return String(v);
+}
+
+/** Same visual language as ImportanceBars, but for the 0..1 relative tuning importances. */
+function TuningImportanceBars({ importance }: { importance: Record<string, number> }) {
+  const entries = Object.entries(importance)
+    .filter(([, v]) => v > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 8);
+  if (entries.length === 0) return null;
+  const max = Math.max(...entries.map(([, v]) => v));
+  return (
+    <div>
+      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
+        What drove the best score
+      </h4>
+      <div className="space-y-1.5">
+        {entries.map(([param, v]) => (
+          <div key={param} className="flex items-center gap-2" title={`Relative importance ${v}`}>
+            <span className="w-36 shrink-0 truncate text-right font-mono text-xs text-zinc-300">
+              {param}
+            </span>
+            <div className="flex flex-1 items-center gap-2">
+              <div
+                className="h-3.5 rounded-r"
+                style={{ width: `${(v / max) * 100}%`, minWidth: 2, background: SEQ_HUE }}
+              />
+              <span className="text-xs text-zinc-400" style={{ fontVariantNumeric: "tabular-nums" }}>
+                {v.toFixed(3)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const TRIAL_STATE_LABELS: Record<string, { label: string; cls: string }> = {
+  complete: { label: "complete", cls: "text-zinc-400" },
+  pruned: { label: "pruned", cls: "text-amber-300" },
+  failed: { label: "failed", cls: "text-red-300" },
+};
+
+function TuningSection({ tuning, results }: { tuning: NonNullable<Results["tuning"]>; results: Results }) {
+  const [showAll, setShowAll] = useState(false);
+
+  const sortedTrials = [...tuning.trials].sort((a, b) => {
+    if (a.score === null && b.score === null) return a.number - b.number;
+    if (a.score === null) return 1;
+    if (b.score === null) return -1;
+    return b.score - a.score; // raw score desc = best first (already sign-adjusted)
+  });
+  const bestNumber = sortedTrials.find((t) => t.state === "complete")?.number;
+  const shown = showAll ? sortedTrials : sortedTrials.slice(0, 25);
+  const hiddenCount = sortedTrials.length - shown.length;
+
+  let summary: string;
+  const label = TUNING_STRATEGY_LABELS[tuning.strategy] ?? tuning.strategy;
+  if (tuning.strategy === "none") {
+    summary = "No tuning · defaults used";
+  } else if (tuning.strategy === "grid") {
+    summary = `Grid search · ${tuning.n_trials} configuration${tuning.n_trials === 1 ? "" : "s"}`;
+  } else {
+    const budgetPart =
+      tuning.time_budget_s != null ? ` of ${tuning.time_budget_s} s budget` : "";
+    summary = `${label} search · ${tuning.n_trials} trials (${tuning.n_pruned} pruned, ${tuning.n_failed} failed) · ${fmt(tuning.elapsed_s)} s${budgetPart}`;
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-zinc-400">{summary}</p>
+
+      {Object.keys(tuning.best_params).length > 0 && (
+        <div>
+          <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
+            Best parameters
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(tuning.best_params).map(([k, v]) => {
+              const pinned = Object.prototype.hasOwnProperty.call(tuning.pinned, k);
+              return (
+                <span
+                  key={k}
+                  className="rounded-full border border-zinc-700 px-2.5 py-0.5 font-mono text-xs text-zinc-400"
+                >
+                  {k}={formatParamValue(v)}
+                  {pinned && <span className="ml-1 text-emerald-500">pinned</span>}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {tuning.importance && <TuningImportanceBars importance={tuning.importance} />}
+
+      {tuning.trials.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
+            Trials
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
+              <thead>
+                <tr className="text-zinc-400">
+                  <th className="pb-1 pr-3 text-right font-normal">#</th>
+                  <th className="pb-1 pr-3 text-left font-normal">Params</th>
+                  <th className="pb-1 pr-3 text-right font-normal">Score</th>
+                  <th className="pb-1 pr-3 text-right font-normal">Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((t) => {
+                  const isBest = t.number === bestNumber;
+                  const stateInfo = TRIAL_STATE_LABELS[t.state] ?? { label: t.state, cls: "text-zinc-400" };
+                  const muted = t.state !== "complete";
+                  const paramsStr = Object.entries(t.params)
+                    .map(([k, v]) => `${k}=${formatParamValue(v)}`)
+                    .join(" ");
+                  return (
+                    <tr
+                      key={t.number}
+                      className={isBest ? "border-y border-emerald-700/70 bg-emerald-950/20" : undefined}
+                    >
+                      <td className={`py-1 pr-3 text-right font-mono ${muted ? "text-zinc-400" : "text-zinc-300"}`}>
+                        {t.number}
+                      </td>
+                      <td
+                        className={`max-w-xs truncate py-1 pr-3 text-left font-mono ${muted ? "text-zinc-400" : "text-zinc-300"}`}
+                        title={paramsStr}
+                      >
+                        {paramsStr || "—"}
+                      </td>
+                      <td className={`py-1 pr-3 text-right font-mono ${muted ? "text-zinc-400" : "text-zinc-100"}`}>
+                        {t.score === null ? "—" : fmt(Math.abs(t.score))}
+                      </td>
+                      <td className="py-1 pr-3 text-right font-mono text-zinc-400">
+                        {fmt(t.duration_s)}s
+                        {t.state !== "complete" && (
+                          <span className={`ml-1.5 ${stateInfo.cls}`}>{stateInfo.label}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="focus-ring-panel mt-1.5 rounded text-xs text-zinc-400 transition-colors hover:text-zinc-300"
+            >
+              show all {sortedTrials.length}
+            </button>
+          )}
+        </div>
+      )}
+
+      {tuning.note && <p className="text-xs text-zinc-400">{tuning.note}</p>}
+    </div>
+  );
+}
+
 export default function ReportCard({ runId, results }: { runId: string; results: Results }) {
   const { holdout } = results;
   const primary = results.primary_metric;
@@ -811,6 +990,21 @@ export default function ReportCard({ runId, results }: { runId: string; results:
             detail={`Top ${Math.min(8, results.feature_importances.filter((i) => i.importance > 0).length)} features by importance`}
           >
             <ImportanceBars items={results.feature_importances} />
+          </Disclosure>
+        )}
+
+        {!isForecasting && results.tuning && (
+          <Disclosure
+            summary="Tuning"
+            detail={
+              results.tuning.strategy === "none"
+                ? "No search — defaults used"
+                : results.tuning.strategy === "grid"
+                  ? `${results.tuning.n_trials} configuration${results.tuning.n_trials === 1 ? "" : "s"}`
+                  : `${results.tuning.n_trials} trials · ${results.tuning.n_pruned} pruned · ${results.tuning.n_failed} failed`
+            }
+          >
+            <TuningSection tuning={results.tuning} results={results} />
           </Disclosure>
         )}
 

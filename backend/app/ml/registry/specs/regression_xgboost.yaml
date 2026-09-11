@@ -19,12 +19,26 @@ model:
   grid:
     max_depth: [3, 6]
     learning_rate: [0.05, 0.1]
+  search_space:
+    max_depth: { type: int, low: 2, high: 10 }
+    learning_rate: { type: float, low: 0.01, high: 0.3, log: true }
+    n_estimators: { type: int, low: 100, high: 800 }
+    min_child_weight: { type: float, low: 1, high: 20, log: true }
+    subsample: { type: float, low: 0.5, high: 1.0 }
+    colsample_bytree: { type: float, low: 0.4, high: 1.0 }
+    reg_lambda: { type: float, low: 0.001, high: 10, log: true }
   fallback:
     class: sklearn.ensemble.HistGradientBoostingRegressor
     params: { max_iter: 300, learning_rate: 0.05, random_state: 42 }
     grid:
       max_depth: [3, 6]
       learning_rate: [0.05, 0.1]
+    search_space:
+      max_leaf_nodes: { type: int, low: 7, high: 127, log: true }
+      learning_rate: { type: float, low: 0.01, high: 0.3, log: true }
+      max_iter: { type: int, low: 100, high: 800 }
+      min_samples_leaf: { type: int, low: 5, high: 100, log: true }
+      l2_regularization: { type: float, low: 0.001, high: 10, log: true }
 metrics:
   regression: { default: r2, supported: [r2, mae, rmse] }
 feature_ops_allowed: [drop, impute, encode, datetime_expand, log_transform, clip_outliers, bin, arithmetic, group_aggregate, select, class_balance, target_transform]

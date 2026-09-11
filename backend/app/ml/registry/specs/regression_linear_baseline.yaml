@@ -17,5 +17,7 @@ model:
   params: {}
   grid:
     alpha: [0.1, 1.0, 10.0]
+  search_space:
+    alpha: { type: float, low: 0.001, high: 100, log: true }
 metrics:
   regression: { default: r2, supported: [r2, mae, rmse] }

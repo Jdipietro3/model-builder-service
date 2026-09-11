@@ -125,6 +125,8 @@ def test_list_methodologies_summary_keys():
         "task_types",
         "when_to_use",
         "metrics",
+        "feature_ops_allowed",
+        "model",
     }
     for r in results:
         assert set(r) == expected_keys

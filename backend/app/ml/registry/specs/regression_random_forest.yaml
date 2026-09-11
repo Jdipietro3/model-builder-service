@@ -18,6 +18,11 @@ model:
   grid:
     max_depth: [10, null]
     min_samples_leaf: [1, 5]
+  search_space:
+    n_estimators: { type: int, low: 100, high: 600 }
+    max_depth: { type: int, low: 3, high: 30 }
+    min_samples_leaf: { type: int, low: 1, high: 20, log: true }
+    max_features: { type: categorical, choices: [sqrt, log2, 0.5, 1.0] }
 metrics:
   regression: { default: r2, supported: [r2, mae, rmse] }
 feature_ops_allowed: [drop, impute, encode, datetime_expand, log_transform, clip_outliers, bin, arithmetic, group_aggregate, select, class_balance, target_transform]

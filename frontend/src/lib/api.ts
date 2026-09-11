@@ -117,13 +117,20 @@ export interface RecipeStep {
   description?: string | null;
 }
 
-// Phase 1 addition: tuning strategy for the run.
+// Phase 2: tuning strategy for the run. null/absent on the Plan means
+// "grid" (today's default behavior); n_trials/time_budget_s null means
+// "server default" (20 trials, or 10 under 2k rows; 300s, server cap 900s).
 export interface TuningSpec {
   strategy: "none" | "grid" | "random" | "bayesian";
-  n_trials: number;
+  n_trials?: number | null;
   time_budget_s?: number | null;
   cv_splits?: number | null;
 }
+
+// Phase 2: one entry of a methodology's hyperparameter search space.
+export type SearchSpaceEntry =
+  | { type: "int" | "float"; low: number; high: number; log?: boolean }
+  | { type: "categorical"; choices: unknown[] };
 
 export interface Plan {
   task_type: string;
@@ -302,6 +309,29 @@ export interface Results {
     derived_columns: string[]; // engineered feature names (may be capped at 200)
     dropped_columns: string[];
   } | null;
+  // Phase 2 addition. Absent on runs trained before this change, forecasting
+  // runs, and ensemble runs.
+  tuning?: {
+    strategy: "none" | "grid" | "random" | "bayesian";
+    n_trials: number;
+    n_pruned: number;
+    n_failed: number;
+    time_budget_s: number | null;
+    elapsed_s: number;
+    best_params: Record<string, unknown>;
+    search_space: Record<string, SearchSpaceEntry> | null;
+    pinned: Record<string, unknown>;
+    trials: {
+      number: number;
+      params: Record<string, unknown>;
+      score: number | null;
+      duration_s: number;
+      state: "complete" | "pruned" | "failed";
+    }[];
+    // 0..1 relative, only populated for random/bayesian with enough trials.
+    importance: Record<string, number> | null;
+    note: string | null;
+  } | null;
 }
 
 export interface Run {
@@ -351,6 +381,14 @@ export interface Methodology {
   when_to_use: string;
   metrics: Record<string, { default: string; supported: string[] }>;
   task_family: string;
+  // Phase 2: present on specs that declare tunable params. Absent on the
+  // current /methodologies response — render tuning controls without the
+  // search-space-driven pin picker when it's missing.
+  model?: {
+    params?: Record<string, unknown>;
+    grid?: Record<string, unknown[]>;
+    search_space?: Record<string, SearchSpaceEntry>;
+  };
 }
 
 export interface DeploymentContractFeature {

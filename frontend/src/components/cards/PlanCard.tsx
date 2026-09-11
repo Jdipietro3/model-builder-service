@@ -39,6 +39,16 @@ export default function PlanCard({
   const [timeColumn, setTimeColumn] = useState(plan.time_column ?? "");
   const [horizon, setHorizon] = useState(plan.horizon ?? 1);
 
+  const strategy0 = plan.tuning?.strategy ?? "grid";
+  const nTrials0 = plan.tuning?.n_trials ?? null;
+  const timeBudget0 = plan.tuning?.time_budget_s ?? null;
+  const [strategy, setStrategy] = useState<"none" | "grid" | "random" | "bayesian">(strategy0);
+  const [nTrials, setNTrials] = useState<number | null>(nTrials0);
+  const [timeBudget, setTimeBudget] = useState<number | null>(timeBudget0);
+  const [pins, setPins] = useState<{ key: string; value: string }[]>(() =>
+    Object.entries(plan.hyperparameters ?? {}).map(([k, v]) => ({ key: k, value: String(v) })),
+  );
+
   const preprocessing = useMemo(
     () => (plan.preprocessing && plan.preprocessing.length > 0 ? plan.preprocessing : null),
     [plan.preprocessing],
@@ -73,6 +83,53 @@ export default function PlanCard({
     const def = m?.metrics[plan.task_type]?.default;
     if (def) setMetric(def);
   }
+
+  // Phase 2: tuning controls. `chosen.model` may be absent from the current
+  // /methodologies response — degrade to grid/none only, no pin picker.
+  const searchSpace = chosen?.model?.search_space;
+  const hasSearchSpace = !!searchSpace && Object.keys(searchSpace).length > 0;
+  const knownParamNames = chosen?.model
+    ? Array.from(
+        new Set([
+          ...Object.keys(chosen.model.params ?? {}),
+          ...Object.keys(chosen.model.grid ?? {}),
+          ...Object.keys(searchSpace ?? {}),
+        ]),
+      )
+    : [];
+  const availableToPin = knownParamNames.filter((k) => !pins.some((p) => p.key === k));
+
+  function addPin(key: string) {
+    setPins((prev) => [...prev, { key, value: "" }]);
+  }
+  function removePin(index: number) {
+    setPins((prev) => prev.filter((_, i) => i !== index));
+  }
+  function updatePin(index: number, value: string) {
+    setPins((prev) => prev.map((p, i) => (i === index ? { ...p, value } : p)));
+  }
+
+  /** number if numeric, true/false if boolean, else the raw string. */
+  function parsePinValue(s: string): unknown {
+    const trimmed = s.trim();
+    if (trimmed === "true") return true;
+    if (trimmed === "false") return false;
+    if (trimmed !== "" && !Number.isNaN(Number(trimmed))) return Number(trimmed);
+    return s;
+  }
+
+  const sortedEntries = (o: Record<string, unknown>) =>
+    Object.entries(o).sort(([a], [b]) => a.localeCompare(b));
+  const currentHyperparameters = Object.fromEntries(
+    pins.map((p) => [p.key, parsePinValue(p.value)]),
+  );
+  const originalHyperparameters = plan.hyperparameters ?? {};
+  const hyperparametersChanged =
+    JSON.stringify(sortedEntries(currentHyperparameters)) !==
+    JSON.stringify(sortedEntries(originalHyperparameters));
+  const tuningChanged =
+    strategy !== strategy0 || nTrials !== nTrials0 || timeBudget !== timeBudget0;
+  const isTuned = strategy === "random" || strategy === "bayesian";
 
   const badge = STATUS_LABELS[status] ?? STATUS_LABELS.pending_approval;
   const selectCls =
@@ -177,18 +234,136 @@ export default function PlanCard({
         )}
       </div>
 
-      {plan.hyperparameters && Object.keys(plan.hyperparameters).length > 0 && (
+      {!isForecasting && (
         <div className="px-4 pb-3">
-          <div className="mb-1 text-xs text-zinc-400">Pinned hyperparameters</div>
-          <div className="flex flex-wrap gap-1.5">
-            {Object.entries(plan.hyperparameters).map(([k, v]) => (
-              <span
-                key={k}
-                className="rounded-full border border-zinc-700 px-2.5 py-0.5 font-mono text-xs text-zinc-400"
+          <div className="mb-1 text-xs text-zinc-400">Tuning</div>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+            <div>
+              <div className="mb-1 text-xs text-zinc-400">Strategy</div>
+              <select
+                value={strategy}
+                onChange={(e) => setStrategy(e.target.value as typeof strategy)}
+                disabled={!editable}
+                className={selectCls}
               >
-                {k}={String(v)}
-              </span>
-            ))}
+                <option value="grid">Grid (spec defaults)</option>
+                <option
+                  value="random"
+                  disabled={!hasSearchSpace}
+                  title={!hasSearchSpace ? "no search space for this methodology" : undefined}
+                >
+                  Random search
+                </option>
+                <option
+                  value="bayesian"
+                  disabled={!hasSearchSpace}
+                  title={!hasSearchSpace ? "no search space for this methodology" : undefined}
+                >
+                  Bayesian (Optuna)
+                </option>
+                <option value="none">None (defaults only)</option>
+              </select>
+            </div>
+            {isTuned && (
+              <>
+                <div>
+                  <div className="mb-1 text-xs text-zinc-400">Trials</div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    placeholder="20 (auto)"
+                    value={nTrials ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === "") {
+                        setNTrials(null);
+                        return;
+                      }
+                      const v = parseInt(raw, 10);
+                      setNTrials(Number.isNaN(v) ? null : Math.min(500, Math.max(1, v)));
+                    }}
+                    disabled={!editable}
+                    className={selectCls}
+                  />
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-zinc-400">Time budget (s)</div>
+                  <input
+                    type="number"
+                    min={10}
+                    max={900}
+                    placeholder="300"
+                    value={timeBudget ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === "") {
+                        setTimeBudget(null);
+                        return;
+                      }
+                      const v = parseInt(raw, 10);
+                      setTimeBudget(Number.isNaN(v) ? null : Math.min(900, Math.max(10, v)));
+                    }}
+                    disabled={!editable}
+                    className={selectCls}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="mt-3">
+            <div className="mb-1 text-xs text-zinc-400">Pinned hyperparameters</div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {pins.map((p, i) =>
+                editable ? (
+                  <span
+                    key={p.key}
+                    className="flex items-center gap-1 rounded-full border border-zinc-700 px-2 py-0.5 font-mono text-xs text-zinc-400"
+                  >
+                    {p.key}=
+                    <input
+                      value={p.value}
+                      onChange={(e) => updatePin(i, e.target.value)}
+                      className="focus-ring-panel w-16 rounded bg-transparent text-zinc-200 outline-none"
+                    />
+                    <button
+                      onClick={() => removePin(i)}
+                      title="Unpin"
+                      className="focus-ring-panel rounded text-zinc-400 transition-colors hover:text-red-300"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ) : (
+                  <span
+                    key={p.key}
+                    className="rounded-full border border-zinc-700 px-2.5 py-0.5 font-mono text-xs text-zinc-400"
+                  >
+                    {p.key}={p.value}
+                  </span>
+                ),
+              )}
+              {editable && availableToPin.length > 0 && (
+                <select
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) addPin(e.target.value);
+                  }}
+                  className="focus-ring-panel rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 font-mono text-xs text-zinc-400"
+                >
+                  <option value="">+ Pin a parameter</option>
+                  {availableToPin.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {pins.length === 0 && availableToPin.length === 0 && (
+                <span className="text-xs text-zinc-400">None</span>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -341,7 +516,9 @@ export default function PlanCard({
           <span className="text-xs text-zinc-400">
             {isForecasting
               ? `${plan.validation.n_splits} validation folds (rolling-origin backtest) + holdout window`
-              : `${plan.validation.n_splits}-fold cross-validation + 20% holdout`}
+              : isTuned
+                ? `${nTrials ?? "auto"} trials · budget ${timeBudget ?? 300}s · ${plan.validation.n_splits}-fold CV + 20% holdout`
+                : `${plan.validation.n_splits}-fold cross-validation + 20% holdout`}
           </span>
           <button
             onClick={() =>
@@ -356,6 +533,17 @@ export default function PlanCard({
                       preprocessing: preprocessing.filter((_, i) => !removedSteps.has(i)),
                     }
                   : {}),
+                ...(tuningChanged
+                  ? {
+                      tuning: {
+                        strategy,
+                        n_trials: nTrials,
+                        time_budget_s: timeBudget,
+                        cv_splits: plan.tuning?.cv_splits ?? null,
+                      },
+                    }
+                  : {}),
+                ...(hyperparametersChanged ? { hyperparameters: currentHyperparameters } : {}),
               })
             }
             className="focus-ring-panel rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"

@@ -17,10 +17,11 @@ import warnings
 # grid search and permutation importance.
 warnings.filterwarnings("ignore", message="X does not have valid feature names")
 
-from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, train_test_split
+from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 from .. import evaluation
+from .. import tuning as tuning_mod
 from ..recipe import METRIC_SCORING, compile_recipe, legacy_recipe, preprocessing_applied, resolve_recipe
 from .base import LoadedData, ProgressCb, RunOutcome, register_runner
 
@@ -54,6 +55,10 @@ class SupervisedRunner:
             effective_spec["model"]["grid"] = {
                 k: v for k, v in effective_spec["model"].get("grid", {}).items() if k not in pinned
             }
+            if "search_space" in effective_spec["model"]:
+                effective_spec["model"]["search_space"] = {
+                    k: v for k, v in effective_spec["model"]["search_space"].items() if k not in pinned
+                }
 
         if plan.get("preprocessing") is None:
             recipe = legacy_recipe(profile, effective_spec, plan)
@@ -91,29 +96,23 @@ class SupervisedRunner:
         primary_metric = plan["primary_metric"]
         scoring = METRIC_SCORING[primary_metric]
         prefix = info.model_param_prefix
-        grid = {f"{prefix}{k}": v for k, v in effective_spec["model"].get("grid", {}).items()}
 
-        n_candidates = 1
-        for values in effective_spec["model"].get("grid", {}).values():
-            n_candidates *= len(values)
-        progress(
-            "cross_validation",
-            25,
-            f"Cross-validating {n_candidates} configuration(s) x {n_splits} folds",
+        tune_result = tuning_mod.tune(
+            pipeline,
+            X_train,
+            y_train,
+            spec=effective_spec,
+            plan=plan,
+            cv=cv,
+            scoring=scoring,
+            param_prefix=prefix,
+            primary_metric=primary_metric,
+            is_classification=is_classification,
+            progress=progress,
         )
-        search = GridSearchCV(pipeline, grid, cv=cv, scoring=scoring, n_jobs=-1, refit=True)
-        search.fit(X_train, y_train)
-
-        best_idx = search.best_index_
-        cv_summary = {
-            "metric": primary_metric,
-            "mean": round(float(search.cv_results_["mean_test_score"][best_idx]), 4),
-            "std": round(float(search.cv_results_["std_test_score"][best_idx]), 4),
-            "n_splits": n_splits,
-            "n_candidates": n_candidates,
-        }
-        best_params = {k.removeprefix(prefix): v for k, v in search.best_params_.items()}
-        fitted = search.best_estimator_
+        cv_summary = tune_result.cv_summary
+        best_params = tune_result.best_params
+        fitted = tune_result.fitted
 
         progress("evaluating", 70, "Evaluating on held-out test data")
         metric_names = spec["metrics"][task_type]["supported"]
@@ -187,6 +186,7 @@ class SupervisedRunner:
             "features_dropped": info.dropped,
             "caveats": caveats,
             "diagnostics": diagnostics,
+            "tuning": tune_result.tuning,
             "n_train": int(len(X_train)),
             "n_test": int(len(X_test)),
             "training_seconds": round(time.time() - t0, 1),

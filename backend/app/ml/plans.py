@@ -215,23 +215,67 @@ def _validate_preprocessing(plan: Plan, spec: dict[str, Any], profile: dict[str,
                     errors.append(f"Preprocessing step 'group_aggregate' references unknown column '{val}'")
 
 
+def _validate_tuning(plan: Plan, spec: dict[str, Any], errors: list[str]) -> None:
+    """Phase 2 checks: random/bayesian strategies require a spec-declared
+    ``model.search_space`` (the runner raises ValueError otherwise, so this
+    must catch it earlier); ``time_budget_s`` is capped at
+    ``config.TUNING_MAX_TIME_S``.
+
+    Deliberately a local import (not at module scope): keeps ``config``
+    import cost off callers that never touch tuning validation, and mirrors
+    the local-import style already used for the preprocessing op registry
+    below.
+    """
+    if plan.tuning is None:
+        return
+
+    if plan.tuning.strategy in ("random", "bayesian") and not spec["model"].get("search_space"):
+        errors.append(
+            f"tuning.strategy '{plan.tuning.strategy}' requires methodology "
+            f"'{plan.methodology_id}' to declare a model.search_space, which it does not "
+            "(use strategy 'grid' or 'none' instead)"
+        )
+
+    if plan.tuning.time_budget_s is not None:
+        from .. import config
+
+        if plan.tuning.time_budget_s > config.TUNING_MAX_TIME_S:
+            errors.append(
+                f"tuning.time_budget_s ({plan.tuning.time_budget_s}) exceeds the cap of "
+                f"{config.TUNING_MAX_TIME_S} seconds"
+            )
+
+
+def _validate_hyperparameters(plan: Plan, spec: dict[str, Any], errors: list[str]) -> None:
+    if plan.hyperparameters is None:
+        return
+
+    model = spec.get("model", {})
+    known = set(model.get("params", {})) | set(model.get("grid", {})) | set(model.get("search_space") or {})
+    for key, value in plan.hyperparameters.items():
+        values = value if isinstance(value, list) else [value]
+        if any(isinstance(v, dict) for v in values):
+            errors.append(
+                f"hyperparameters['{key}'] must be a scalar or list of scalars, not a "
+                "nested dict"
+            )
+        if key not in known:
+            errors.append(
+                f"hyperparameters['{key}'] is not a known parameter for methodology "
+                f"'{plan.methodology_id}' (known: {', '.join(sorted(known)) or '(none)'})"
+            )
+
+
 def _validate_new_fields(
     plan: Plan, spec: dict[str, Any], profile: dict[str, Any], errors: list[str]
 ) -> None:
     """Shape/content checks for the recipe/tuning/hyperparameters/revision
     fields. Preprocessing is fully validated against ml/recipe.py's op registry
-    (Phase 1); tuning's deeper checks (search spaces) land with Phase 2.
+    (Phase 1); tuning's search-space and budget checks are Phase 2.
     """
     _validate_preprocessing(plan, spec, profile, errors)
-
-    if plan.hyperparameters is not None:
-        for key, value in plan.hyperparameters.items():
-            values = value if isinstance(value, list) else [value]
-            if any(isinstance(v, dict) for v in values):
-                errors.append(
-                    f"hyperparameters['{key}'] must be a scalar or list of scalars, not a "
-                    "nested dict"
-                )
+    _validate_hyperparameters(plan, spec, errors)
+    _validate_tuning(plan, spec, errors)
 
     if plan.revision_of_run_id is not None and not plan.revision_of_run_id.strip():
         errors.append("revision_of_run_id must be a non-empty string when set")

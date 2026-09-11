@@ -231,6 +231,14 @@ def list_methodologies(
                 "task_types": spec["task_types"],
                 "when_to_use": spec["when_to_use"].strip(),
                 "metrics": spec["metrics"],
+                "feature_ops_allowed": spec.get("feature_ops_allowed"),
+                # What a plan may pin or search over (Phase 2). The model class and
+                # fallback stay internal — callers only need the parameter surface.
+                "model": {
+                    "params": spec["model"].get("params", {}),
+                    "grid": spec["model"].get("grid", {}),
+                    "search_space": spec["model"].get("search_space"),
+                },
             }
         )
     return out

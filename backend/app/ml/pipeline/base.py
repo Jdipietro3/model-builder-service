@@ -76,11 +76,25 @@ treat both as nullable:
         },
         "tuning": {                         # Phase 2 (Optuna-based tuning)
             "strategy": "none" | "grid" | "random" | "bayesian",
-            "n_trials": <int>, "best_params": {...},
-            "trials": [{"params", "score", "duration_s"}],
-            "importance": {...},            # param -> relative importance, if computed
+            "n_trials": <int completed>, "n_pruned": <int>, "n_failed": <int>,
+            "time_budget_s": <int|None>, "elapsed_s": <float, 1dp>,
+            "best_params": {...},           # same values as results.best_params
+            "search_space": {...}|None,     # what was searched (minus pinned); None for grid/none
+            "pinned": {...},                # plan.hyperparameters or {}
+            "trials": [
+                {"number", "params", "score" <float 4dp|None>, "duration_s" <float 2dp>,
+                 "state": "complete" | "pruned" | "failed"},
+                ...
+            ],                              # capped at 200 (best-scoring + first few; see "note")
+            "importance": {...}|None,       # optuna.importance.get_param_importances; None for grid/none
+            "note": <str>|None,             # e.g. trial truncation or a no-trial-completed fallback
         },
     }
+
+A plan with ``tuning`` absent/None behaves exactly as the pre-Phase-2 grid
+search (``tests/test_golden.py`` pins this): ``tuning.strategy`` resolves to
+``"grid"`` and the envelope above is assembled from the grid search's
+``cv_results_`` without any extra fits.
 """
 
 from dataclasses import dataclass, field

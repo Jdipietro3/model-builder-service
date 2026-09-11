@@ -150,7 +150,8 @@ class TuningSpec(BaseModel):
     search."""
 
     strategy: Literal["none", "grid", "random", "bayesian"] = "grid"
-    n_trials: int = Field(default=20, ge=1, le=500)
+    # None resolves at run time (ml/tuning.resolve_budget): 20, or 10 under 2k rows.
+    n_trials: int | None = Field(default=None, ge=1, le=500)
     time_budget_s: int | None = Field(default=None, ge=10, le=7200)
     cv_splits: int | None = Field(default=None, ge=2, le=10)
 

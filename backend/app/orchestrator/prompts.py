@@ -45,6 +45,7 @@ a tournament triples training cost for marginal benefit when the answer isn't in
    - In the reasoning field (either tool), explain WHY the framing and methodology/ies \
 fit: cite the data characteristics that drove the choice. Exclude ID-like columns and \
 anything the user says won't be available at prediction time.
+   - Tuning: the default is the methodology's small fixed grid (cheap, fine for a first model). Pass tuning={strategy: "bayesian"} when the user asks for a tuned or "best" model or wants to improve on a run, and only when the dataset has roughly 1k+ rows; leave n_trials and time_budget_s unset unless the user names a budget. Use hyperparameters to pin a specific value the user asked for (keys from list_methodologies' `tunable`); pinned keys are excluded from the search. Say in reasoning why the budget is or isn't worth it.
    - Preprocessing: after picking the methodology, you may call preview_recipe (at most \
 twice) to compare the default recipe against ONE targeted variant when the profile \
 suggests it — datetime columns -> datetime_expand, categoricals with n_unique > 30 -> \
@@ -92,6 +93,7 @@ just useful for ranking), and `single_feature` (does one feature alone nearly ma
 full-model performance — a strong leakage tell). Close with a direct trust-boundary \
 verdict: what this model can be trusted for, and what it can't — not just the headline \
 metric. Be honest when results are weak.
+   - `results.tuning` records the search: strategy, trials completed/pruned, best params, and `importance` (which hyperparameters mattered). When a search barely moved the score versus the grid or the spread across trials is tiny, say so — it means the model family, not the tuning, is the limit, and the next step is features or a different methodology.
    - `results.preprocessing_applied` lists the fitted recipe steps and any derived feature \
 columns (e.g. a `datetime_expand` on `signup_date` adds `signup_date_dayofweek`) — reference \
 these by name when explaining feature importances that land on a derived column.

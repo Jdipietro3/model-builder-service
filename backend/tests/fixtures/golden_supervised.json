@@ -319,7 +319,47 @@
     "primary_metric": "roc_auc",
     "target_column": "churned",
     "task_family": "supervised",
-    "task_type": "binary_classification"
+    "task_type": "binary_classification",
+    "tuning": {
+      "best_params": {
+        "C": 1.0
+      },
+      "importance": null,
+      "n_failed": 0,
+      "n_pruned": 0,
+      "n_trials": 3,
+      "note": null,
+      "pinned": {},
+      "search_space": null,
+      "strategy": "grid",
+      "time_budget_s": null,
+      "trials": [
+        {
+          "number": 0,
+          "params": {
+            "C": 0.1
+          },
+          "score": 0.9132,
+          "state": "complete"
+        },
+        {
+          "number": 1,
+          "params": {
+            "C": 1.0
+          },
+          "score": 0.9134,
+          "state": "complete"
+        },
+        {
+          "number": 2,
+          "params": {
+            "C": 10.0
+          },
+          "score": 0.9134,
+          "state": "complete"
+        }
+      ]
+    }
   },
   "churn_rf": {
     "best_params": {
@@ -634,7 +674,60 @@
     "primary_metric": "roc_auc",
     "target_column": "churned",
     "task_family": "supervised",
-    "task_type": "binary_classification"
+    "task_type": "binary_classification",
+    "tuning": {
+      "best_params": {
+        "max_depth": 10,
+        "min_samples_leaf": 5
+      },
+      "importance": null,
+      "n_failed": 0,
+      "n_pruned": 0,
+      "n_trials": 4,
+      "note": null,
+      "pinned": {},
+      "search_space": null,
+      "strategy": "grid",
+      "time_budget_s": null,
+      "trials": [
+        {
+          "number": 0,
+          "params": {
+            "max_depth": 10,
+            "min_samples_leaf": 1
+          },
+          "score": 0.8977,
+          "state": "complete"
+        },
+        {
+          "number": 1,
+          "params": {
+            "max_depth": 10,
+            "min_samples_leaf": 5
+          },
+          "score": 0.902,
+          "state": "complete"
+        },
+        {
+          "number": 2,
+          "params": {
+            "max_depth": null,
+            "min_samples_leaf": 1
+          },
+          "score": 0.8873,
+          "state": "complete"
+        },
+        {
+          "number": 3,
+          "params": {
+            "max_depth": null,
+            "min_samples_leaf": 5
+          },
+          "score": 0.9014,
+          "state": "complete"
+        }
+      ]
+    }
   },
   "house_linear": {
     "best_params": {
@@ -894,7 +987,47 @@
     "primary_metric": "rmse",
     "target_column": "price",
     "task_family": "supervised",
-    "task_type": "regression"
+    "task_type": "regression",
+    "tuning": {
+      "best_params": {
+        "alpha": 0.1
+      },
+      "importance": null,
+      "n_failed": 0,
+      "n_pruned": 0,
+      "n_trials": 3,
+      "note": null,
+      "pinned": {},
+      "search_space": null,
+      "strategy": "grid",
+      "time_budget_s": null,
+      "trials": [
+        {
+          "number": 0,
+          "params": {
+            "alpha": 0.1
+          },
+          "score": -24747.2987,
+          "state": "complete"
+        },
+        {
+          "number": 1,
+          "params": {
+            "alpha": 1.0
+          },
+          "score": -24748.151,
+          "state": "complete"
+        },
+        {
+          "number": 2,
+          "params": {
+            "alpha": 10.0
+          },
+          "score": -24842.5906,
+          "state": "complete"
+        }
+      ]
+    }
   },
   "house_rf": {
     "best_params": {
@@ -1147,6 +1280,59 @@
     "primary_metric": "rmse",
     "target_column": "price",
     "task_family": "supervised",
-    "task_type": "regression"
+    "task_type": "regression",
+    "tuning": {
+      "best_params": {
+        "max_depth": 10,
+        "min_samples_leaf": 1
+      },
+      "importance": null,
+      "n_failed": 0,
+      "n_pruned": 0,
+      "n_trials": 4,
+      "note": null,
+      "pinned": {},
+      "search_space": null,
+      "strategy": "grid",
+      "time_budget_s": null,
+      "trials": [
+        {
+          "number": 0,
+          "params": {
+            "max_depth": 10,
+            "min_samples_leaf": 1
+          },
+          "score": -28767.7379,
+          "state": "complete"
+        },
+        {
+          "number": 1,
+          "params": {
+            "max_depth": 10,
+            "min_samples_leaf": 5
+          },
+          "score": -29485.2621,
+          "state": "complete"
+        },
+        {
+          "number": 2,
+          "params": {
+            "max_depth": null,
+            "min_samples_leaf": 1
+          },
+          "score": -28812.0871,
+          "state": "complete"
+        },
+        {
+          "number": 3,
+          "params": {
+            "max_depth": null,
+            "min_samples_leaf": 5
+          },
+          "score": -29436.4534,
+          "state": "complete"
+        }
+      ]
+    }
   }
 }

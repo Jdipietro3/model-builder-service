@@ -57,6 +57,21 @@ class RecipeStepInput(ToolInput):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
+class TuningInput(ToolInput):
+    strategy: Literal["none", "grid", "random", "bayesian"] = Field(
+        default="grid",
+        description="grid = the methodology's small fixed grid (default, cheap); random/bayesian = "
+        "Optuna search over the methodology's search_space within a trial/time budget; none = "
+        "default params only.",
+    )
+    n_trials: int | None = Field(
+        default=None, ge=1, le=500, description="Omit for the server default (20, or 10 under 2k rows)."
+    )
+    time_budget_s: int | None = Field(
+        default=None, ge=10, le=7200, description="Omit for the server default (300 s). Server cap applies."
+    )
+
+
 class ProposePlanInput(ToolInput):
     dataset_id: str
     task_type: TaskType
@@ -96,8 +111,13 @@ class ProposePlanInput(ToolInput):
     )
     hyperparameters: dict[str, Any] | None = Field(
         default=None,
-        description="Pinned model params applied instead of the grid for those keys; only "
-        "keys from the methodology's params/grid.",
+        description="Pinned model params, excluded from any search; only keys from the "
+        "methodology's params/grid/search_space (see list_methodologies).",
+    )
+    tuning: TuningInput | None = Field(
+        default=None,
+        description="Omit for the default grid search. Ask for random/bayesian only when the "
+        "user wants a tuned model or the dataset is large enough (>~1k rows) to justify the budget.",
     )
     reasoning: str = Field(
         description="Why this framing and methodology fit, citing data characteristics."
@@ -371,6 +391,12 @@ def list_methodologies_tool(db: Session, project_id: str, args: ListMethodologie
     for spec in specs:
         spec = dict(spec)
         spec["feature_ops_allowed"] = spec.get("feature_ops_allowed") or "all"
+        model = spec.get("model") or {}
+        spec["tunable"] = {
+            "defaults": model.get("params", {}),
+            "grid": model.get("grid", {}),
+            "search_space": model.get("search_space"),
+        }
         result.append(spec)
     return result, None
 
@@ -421,6 +447,7 @@ def propose_plan(db: Session, project_id: str, args: ProposePlanInput):
         "reasoning": args.reasoning,
         "preprocessing": preprocessing,
         "hyperparameters": args.hyperparameters,
+        "tuning": args.tuning.model_dump() if args.tuning is not None else None,
     }
     plan, errors = validate_plan(plan_data, dataset.profile)
     if errors:

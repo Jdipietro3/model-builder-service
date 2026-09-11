@@ -39,7 +39,9 @@ FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "golden_supervised
 # Keys stripped before comparison because they are genuinely non-deterministic
 # (wall-clock timing). Nothing else in the results envelope varies run-to-run:
 # every estimator and diagnostic in the supervised path is seeded (random_state=42).
-NON_DETERMINISTIC_KEYS = {"training_seconds"}
+# `elapsed_s`/`duration_s` are Phase 2 additions inside the `tuning` envelope —
+# grid-search fit/score times, same wall-clock caveat as `training_seconds`.
+NON_DETERMINISTIC_KEYS = {"training_seconds", "elapsed_s", "duration_s"}
 
 MAX_REPORTED_DIFFS = 20
 

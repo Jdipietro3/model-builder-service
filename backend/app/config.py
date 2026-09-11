@@ -34,6 +34,11 @@ LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "16000"))
 
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "100"))
 
+# Phase 2 (Optuna-based tuning): default and max wall-clock budget for a
+# random/bayesian search when a plan doesn't pin `tuning.time_budget_s`.
+TUNING_DEFAULT_TIME_S = int(os.getenv("TUNING_DEFAULT_TIME_S", "300"))
+TUNING_MAX_TIME_S = int(os.getenv("TUNING_MAX_TIME_S", "900"))
+
 SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
 # False for local dev over http://localhost; set true once served over https so
 # the session cookie isn't sent in the clear.

@@ -40,6 +40,16 @@ export default function TrainingCard({
   }
 
   const pct = progress?.pct ?? 0;
+
+  // During tuning the message looks like "Trial 7/20 · best roc_auc 0.9123" —
+  // pull the metric name/value out for a secondary readout beneath the meter.
+  // Any message that doesn't match this shape renders unchanged.
+  let tuningBest: { metric: string; value: string } | null = null;
+  if (progress?.stage === "tuning" && progress.message) {
+    const m = progress.message.match(/best\s+(\S+)\s+([\d.+-]+(?:e[+-]?\d+)?)/i);
+    if (m) tuningBest = { metric: m[1], value: m[2] };
+  }
+
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
       <div className="mb-2 flex items-center justify-between text-sm">
@@ -58,6 +68,12 @@ export default function TrainingCard({
           style={{ width: `${Math.max(pct, 2)}%` }}
         />
       </div>
+      {tuningBest && (
+        <div className="mt-2 text-xs text-zinc-400">
+          best {tuningBest.metric} so far:{" "}
+          <span className="font-mono text-zinc-300">{tuningBest.value}</span>
+        </div>
+      )}
     </div>
   );
 }
