@@ -11,7 +11,7 @@ from .routes import auth, chat, datasets, deployments, projects, runs, tournamen
 # orchestrator's token-usage lines) a root handler at INFO.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     [%(name)s] %(message)s")
 
-app = FastAPI(title="Model Builder Service", version="0.1.0")
+app = FastAPI(title="Metis", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

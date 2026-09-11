@@ -14,6 +14,7 @@ import Sidebar from "@/components/Sidebar";
 import ProjectNav from "@/components/ProjectNav";
 import ChatRail from "@/components/ChatRail";
 import ProjectGate from "@/components/ProjectGate";
+import ResizableSplit from "@/components/ResizableSplit";
 
 export default async function ProjectLayout({
   children,
@@ -28,10 +29,19 @@ export default async function ProjectLayout({
     <ProjectProvider projectId={id}>
       <div className="flex h-full">
         <Sidebar nav={<ProjectNav />} />
-        <main className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
-          <ProjectGate>{children}</ProjectGate>
-        </main>
-        <ChatRail />
+        <ResizableSplit
+          storageKey="chat-rail"
+          leftMinPx={360}
+          rightMinPx={320}
+          defaultRightPx={380}
+          ariaLabel="Resize assistant panel"
+          left={
+            <main className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
+              <ProjectGate>{children}</ProjectGate>
+            </main>
+          }
+          right={<ChatRail />}
+        />
       </div>
     </ProjectProvider>
   );

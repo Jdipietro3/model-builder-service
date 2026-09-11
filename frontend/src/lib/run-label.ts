@@ -9,15 +9,26 @@ export function runLabel(r: Run | null | undefined, methodologies: Methodology[]
   return m?.display_name ?? (r.tournament_role === "ensemble" ? "Ensemble" : r.plan.methodology_id);
 }
 
-/** Lifecycle dot colours, shared by the rail and the tabs. */
+/** Lifecycle dot colours, shared by the rail and the tabs.
+ *
+ *  Both consumers interpolate the value straight into a className, so an entry
+ *  may carry more than one utility — `running` pairs its hue with the pulse.
+ *
+ *  Note `completed` is deliberately the quietest entry rather than the loudest.
+ *  It used to be emerald, back when emerald was the accent, which meant the
+ *  single most common state on the screen was also the most eye-catching thing
+ *  on it. Almost every run completes; if that state wears the accent it spends
+ *  the whole accent budget on the resting case and the dot stops signalling
+ *  anything. The states worth looking at are the ones that are coloured now:
+ *  something needs your approval, something is moving, something broke. */
 export const STATUS_DOT: Record<string, string> = {
-  pending_approval: "bg-amber-400",
-  queued: "bg-sky-400",
-  running: "bg-sky-400",
-  waiting: "bg-zinc-500",
-  claimed: "bg-zinc-500", // transient promotion-mutex state; treated like waiting
-  completed: "bg-emerald-500",
-  failed: "bg-red-500",
+  pending_approval: "bg-accent", // awaiting your decision — the one call to action
+  queued: "bg-zinc-600",
+  running: "bg-info animate-pulse",
+  waiting: "bg-zinc-600",
+  claimed: "bg-zinc-600", // transient promotion-mutex state; treated like waiting
+  completed: "bg-zinc-400",
+  failed: "bg-alarm",
 };
 
 /** Statuses that mean "still working toward a result" for TrainingCard purposes,

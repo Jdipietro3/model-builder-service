@@ -1,7 +1,7 @@
 "use client";
 
-import { ReactNode } from "react";
 import { api, Diagnostics, DiagnosticsCalibration, DiagnosticsSegment, Results } from "@/lib/api";
+import Disclosure from "@/components/Disclosure";
 
 // Chart palette — single source of truth is the token set in globals.css
 // (var(--chart-*)). Constants below just give the SVG/JS call sites a short
@@ -75,52 +75,6 @@ export function fmt(v: number): string {
   return v.toLocaleString(undefined, { maximumFractionDigits: 3 });
 }
 
-function ChevronIcon() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      width={12}
-      height={12}
-      className="shrink-0 text-zinc-400 transition-transform duration-150 group-open:rotate-90"
-      aria-hidden="true"
-    >
-      <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/**
- * Native <details>/<summary> disclosure styled to match the card idiom.
- * Keyboard-accessible with no state required. `summary` must state what's
- * inside in plain language — it's the only thing visible when collapsed.
- */
-function Disclosure({
-  summary,
-  detail,
-  defaultOpen,
-  children,
-}: {
-  summary: string;
-  detail?: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <details className="group border-t border-zinc-800 pt-4" open={defaultOpen}>
-      <summary
-        className="flex list-none cursor-pointer items-center justify-between gap-3 rounded focus-ring-panel [&::-webkit-details-marker]:hidden"
-      >
-        <span className="flex flex-col gap-0.5">
-          <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">{summary}</span>
-          {detail && <span className="text-xs normal-case text-zinc-400">{detail}</span>}
-        </span>
-        <ChevronIcon />
-      </summary>
-      <div className="pt-3">{children}</div>
-    </details>
-  );
-}
-
 function MetricTile({
   name,
   value,
@@ -152,9 +106,9 @@ function MetricTile({
     >
       <div className="text-xs text-zinc-400">
         {METRIC_LABELS[name] ?? name}
-        {primary && <span className="ml-1.5 text-xs text-emerald-500">optimized</span>}
+        {primary && <span className="ml-1.5 text-xs text-accent">optimized</span>}
       </div>
-      <div className={`font-semibold text-zinc-100 ${primary ? "text-2xl" : "text-lg"}`}>
+      <div className={`font-mono font-semibold text-accent-bright ${primary ? "text-2xl" : "text-lg"}`}>
         {fmt(value)}
       </div>
       {deltaEl}
@@ -167,7 +121,11 @@ function MetricGlossary({ metrics }: { metrics: string[] }) {
   const known = metrics.filter((m) => METRIC_DESCRIPTIONS[m]);
   if (known.length === 0) return null;
   return (
-    <Disclosure summary="What these metrics mean" detail="Plain-language definitions for the tiles above" defaultOpen>
+    <Disclosure
+      summary="What these metrics mean"
+      meta="Plain-language definitions for the tiles above"
+      className="border-t border-zinc-800 pt-4"
+    >
       {/* `measure` sits on the element that carries the font size, not the <dl>:
           `ch` resolves against the element's own font-size, so capping at the
           14px parent would let 12px text run ~40% wider than intended. */}
@@ -189,9 +147,6 @@ function ImportanceBars({ items }: { items: NonNullable<Results["feature_importa
   const max = Math.max(...top.map((i) => i.importance));
   return (
     <div>
-      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
-        What drives predictions
-      </h4>
       <div className="space-y-1.5">
         {top.map((item) => (
           <div
@@ -225,18 +180,26 @@ function ImportanceBars({ items }: { items: NonNullable<Results["feature_importa
   );
 }
 
-// Numeric mirror of var(--chart-seq) (#0ea5e9), needed because the ink-color
-// choice below requires real RGB math (composite the cell over the panel,
-// compute luminance) that CSS custom properties can't do for us at render
-// time. Darkened to 72% brightness before blending — at full brightness the
-// mid-alpha steps of the ramp (~alpha 0.55–0.85) sit in a "too bright for
-// dark ink, too mid-tone for light ink" zone that tops out at 4.26:1 contrast
-// against both inks, which fails AA. Darkening the fill base pulls the whole
-// ramp's luminance down so light ink (#f4f4f5) clears AA everywhere; verified
-// by walking the full alpha range (0.08 → 0.93) in 0.2%-of-range steps, worst
-// case 4.99:1.
-const SEQ_RGB: RGB = [14, 165, 233];
-const SEQ_FILL_RGB: RGB = SEQ_RGB.map((c) => c * 0.72) as RGB;
+// Numeric mirror of var(--chart-seq) (#ab6e1f, the amber ramp's --seq-5),
+// needed because the ink-color choice below requires real RGB math (composite
+// the cell over the panel, compute luminance) that CSS custom properties
+// cannot do for us at render time. Keep this in sync with --chart-seq by hand;
+// there is no mechanism that will catch it drifting.
+//
+// Darkened slightly before blending, for the same reason the old sky version
+// was: at full brightness some alpha step always lands in a "too bright for
+// dark ink, too mid-tone for light ink" zone that tops out at 4.26:1 against
+// BOTH inks and fails AA no matter which one is chosen. Darkening pulls the
+// ramp's luminance down until light ink clears AA across the whole range.
+//
+// The factor was re-derived when the palette moved from sky to amber rather
+// than carried over — the old 0.72 was tuned to a different hue and means
+// nothing here. Verified by walking the full alpha range (0.08 → 0.93) in
+// 0.2%-of-range steps: at 0.9 the worst case is 5.02:1, slightly better than
+// the 4.99:1 the sky version achieved, and 0.9 is the lightest factor that
+// clears the plateau — anything nearer 1.0 falls back onto 4.26 and fails.
+const SEQ_RGB: RGB = [171, 110, 31];
+const SEQ_FILL_RGB: RGB = SEQ_RGB.map((c) => c * 0.9) as RGB;
 const PANEL_RGB: RGB = [24, 24, 27]; // Ink Panel (#18181b) — the surface these cells sit on
 const LIGHT_INK: RGB = [244, 244, 245]; // #f4f4f5
 const DARK_INK: RGB = [9, 9, 11]; // #09090b
@@ -245,9 +208,7 @@ function ConfusionMatrix({ labels, matrix }: { labels: string[]; matrix: number[
   const maxCell = Math.max(...matrix.flat(), 1);
   return (
     <div>
-      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
-        Confusion matrix <span className="normal-case">(rows = actual, columns = predicted)</span>
-      </h4>
+      <p className="mb-2 text-xs text-zinc-400">rows = actual, columns = predicted</p>
       <div className="overflow-x-auto">
         <table className="text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
           <thead>
@@ -525,10 +486,10 @@ function SegmentTable({ segment }: { segment: DiagnosticsSegment }) {
               return (
                 <tr
                   key={s.value}
-                  className={isWorst ? "bg-red-950/30" : undefined}
+                  className={isWorst ? "bg-alarm-wash" : undefined}
                 >
                   <td
-                    className={`py-1 pr-3 ${isWorst ? "text-red-300" : "text-zinc-300"}`}
+                    className={`py-1 pr-3 ${isWorst ? "text-alarm" : "text-zinc-300"}`}
                     title={isWorst ? `Weakest segment (${lowerBetter ? "highest" : "lowest"} ${label})` : undefined}
                   >
                     {isWorst && <span className="mr-1">⚠</span>}
@@ -538,7 +499,7 @@ function SegmentTable({ segment }: { segment: DiagnosticsSegment }) {
                   {Object.entries(s.metrics).map(([k, v]) => (
                     <td
                       key={k}
-                      className={`py-1 pr-3 text-right ${isWorst ? "text-red-300" : "text-zinc-300"}`}
+                      className={`py-1 pr-3 text-right ${isWorst ? "text-alarm" : "text-zinc-300"}`}
                     >
                       {fmt(v)}
                     </td>
@@ -566,13 +527,10 @@ function CalibrationView({ calibration }: { calibration: DiagnosticsCalibration 
 
   return (
     <div>
-      <div className="mb-2 flex items-baseline justify-between">
-        <h5 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Calibration</h5>
-        <span className="text-xs text-zinc-400">
-          Brier score <span className="font-mono text-zinc-300">{fmt(brier)}</span>{" "}
-          <span className="text-zinc-400">(lower is better)</span>
-        </span>
-      </div>
+      <p className="mb-2 text-xs text-zinc-400">
+        Brier score <span className="font-mono text-accent-bright">{fmt(brier)}</span>{" "}
+        <span className="text-zinc-400">(lower is better)</span>
+      </p>
       <div className="flex flex-wrap items-center gap-4">
         <svg viewBox={`0 0 ${W} ${H}`} width={180} height={180} className="shrink-0" role="img" aria-label="Reliability diagram">
           {/* diagonal = perfect calibration */}
@@ -609,7 +567,8 @@ function CalibrationView({ calibration }: { calibration: DiagnosticsCalibration 
   );
 }
 
-/** Leakage / single-feature trust check — the content of the default-open diagnostics disclosure. */
+/** Leakage / single-feature trust check. Rendered inline and always visible —
+ *  never inside a Disclosure, for the reason given at its call site. */
 function LeakageCheck({ diagnostics }: { diagnostics: Diagnostics }) {
   const { single_feature } = diagnostics;
   const leaky = single_feature.filter((f) => f.ratio >= 0.95);
@@ -618,9 +577,9 @@ function LeakageCheck({ diagnostics }: { diagnostics: Diagnostics }) {
 
   if (leaky.length > 0) {
     return (
-      <div className="rounded-lg border border-red-900/70 bg-red-950/30 px-3 py-2.5">
+      <div className="rounded-lg border border-alarm/40 bg-alarm-wash px-3 py-2.5">
         {leaky.map((f) => (
-          <p key={f.feature} className="measure text-xs leading-relaxed text-red-200/90">
+          <p key={f.feature} className="measure text-xs leading-relaxed text-alarm">
             ⚠ <span className="font-mono">{f.feature}</span> alone reaches{" "}
             <span className="font-semibold">{(f.ratio * 100).toFixed(0)}%</span> of full model
             performance ({fmt(f.solo_score)} vs {fmt(f.full_score)}) — likely leakage.
@@ -641,7 +600,15 @@ function LeakageCheck({ diagnostics }: { diagnostics: Diagnostics }) {
   return null;
 }
 
-export default function ReportCard({ runId, results }: { runId: string; results: Results }) {
+export default function ReportCard({
+  runId,
+  results,
+  variant = "card",
+}: {
+  runId: string;
+  results: Results;
+  variant?: "card" | "band";
+}) {
   const { holdout } = results;
   const primary = results.primary_metric;
   const secondary = Object.keys(holdout.metrics).filter((m) => m !== primary);
@@ -654,28 +621,35 @@ export default function ReportCard({ runId, results }: { runId: string; results:
   const hasSegments = !!diagnostics && diagnostics.segments.length > 0;
   const hasCalibration = !!diagnostics && !!diagnostics.calibration;
 
+  const isBand = variant === "band";
+  const sidePad = isBand ? "" : "px-4";
+
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-4 py-3">
+    <div className={isBand ? "" : "overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/80"}>
+      <div className={`flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 py-3 ${sidePad}`}>
         <div className="flex items-center gap-2">
-          <span className="rounded bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-300">
-            RESULTS
-          </span>
-          <h3 className="text-sm text-zinc-300">{results.methodology.display_name}</h3>
-          <span className="text-xs text-zinc-400">
+          {isBand ? (
+            <span className="text-title font-medium text-zinc-100">Results</span>
+          ) : (
+            <span className="rounded bg-accent-wash px-2 py-0.5 text-label font-medium text-accent">
+              RESULTS
+            </span>
+          )}
+          <h3 className="text-body text-zinc-300">{results.methodology.display_name}</h3>
+          <span className="text-label text-zinc-400">
             trained in {results.training_seconds}s · {results.n_train.toLocaleString()} train /{" "}
             {results.n_test.toLocaleString()} {isForecasting ? "holdout points" : "test rows"}
           </span>
         </div>
         <a
           href={api.artifactUrl(runId)}
-          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400 focus-ring-panel"
+          className="focus-ring-panel rounded px-3 py-1.5 text-label font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-accent"
         >
           ↓ Download model bundle
         </a>
       </div>
 
-      <div className="space-y-5 px-4 py-4">
+      <div className={`space-y-5 py-4 ${sidePad}`}>
         <div className="space-y-2">
           <MetricTile
             name={primary}
@@ -704,16 +678,13 @@ export default function ReportCard({ runId, results }: { runId: string; results:
           {isForecasting ? "backtest folds" : "folds"}.
         </p>
 
-        <MetricGlossary metrics={[primary, ...secondary]} />
+        {/* Below this point the section order is a deliberate layman-first
+            ranking, not source order: the things someone who can code but
+            doesn't know ML needs to see stay open and brief, then the
+            dropdowns follow in descending order of how likely a first-time
+            reader is to want them. */}
 
         {isForecasting && <ForecastChart results={results} />}
-
-        {!isForecasting && holdout.confusion_matrix && (
-          <ConfusionMatrix
-            labels={holdout.confusion_matrix.labels}
-            matrix={holdout.confusion_matrix.matrix}
-          />
-        )}
 
         {!isForecasting && holdout.residuals && (
           <div>
@@ -722,56 +693,51 @@ export default function ReportCard({ runId, results }: { runId: string; results:
             </h4>
             <p className="measure text-sm text-zinc-300">
               80% of predictions land within{" "}
-              <span className="font-mono">{fmt(holdout.residuals.p10)}</span> to{" "}
-              <span className="font-mono">+{fmt(holdout.residuals.p90)}</span> of the true value
+              <span className="font-mono text-accent-bright">{fmt(holdout.residuals.p10)}</span> to{" "}
+              <span className="font-mono text-accent-bright">+{fmt(holdout.residuals.p90)}</span> of the true value
               (target mean {fmt(holdout.residuals.target_mean)}).
             </p>
           </div>
         )}
 
+        {/* Leakage / data-quality findings stay permanently visible, not inside a
+            Disclosure: these are warnings that the model itself may be wrong, and
+            hiding a correctness warning behind a click is how a leaked model ships.
+            The heading itself is deliberately NOT shaped like a Disclosure summary
+            row (no triangle, no hover affordance, meta stacked underneath rather
+            than pushed to the right) — that resemblance is exactly what made this
+            block read as a collapsible dropdown when it isn't one. The status dot
+            borrows the instrument-panel status-dot vocabulary instead. */}
         {hasLeakageCheck && diagnostics && (
-          <Disclosure
-            summary="Diagnostics — trust check"
-            detail={
-              leakyCount > 0
-                ? `${leakyCount} feature${leakyCount > 1 ? "s" : ""} may be leaking the answer`
-                : "No single feature dominates — looks trustworthy"
-            }
-            defaultOpen
-          >
-            <LeakageCheck diagnostics={diagnostics} />
-          </Disclosure>
-        )}
-
-        {hasSegments && diagnostics && (
-          <Disclosure
-            summary="Per-segment breakdown"
-            detail={`Performance across ${diagnostics.segments.length} column${diagnostics.segments.length > 1 ? "s" : ""} — weakest subgroup highlighted`}
-          >
-            <div className="space-y-3">
-              {diagnostics.segments.map((s) => (
-                <SegmentTable key={s.column} segment={s} />
-              ))}
+          <div className="border-t border-zinc-800 pt-4">
+            <div className="mb-1.5 flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${leakyCount > 0 ? "bg-alarm" : "bg-zinc-400"}`}
+              />
+              <h4 className="text-title font-medium text-zinc-100">Diagnostics — trust check</h4>
             </div>
-          </Disclosure>
+            <p className="mb-2 text-label text-zinc-400">
+              {leakyCount > 0
+                ? `${leakyCount} feature${leakyCount > 1 ? "s" : ""} may be leaking the answer`
+                : "No single feature dominates — looks trustworthy"}
+            </p>
+            <LeakageCheck diagnostics={diagnostics} />
+          </div>
         )}
 
-        {hasCalibration && diagnostics?.calibration && (
-          <Disclosure
-            summary="Calibration"
-            detail={`How well predicted probabilities match reality — Brier ${fmt(diagnostics.calibration.brier)}`}
-          >
-            <CalibrationView calibration={diagnostics.calibration} />
-          </Disclosure>
-        )}
-
-        {!isForecasting && results.feature_importances && results.feature_importances.length > 0 && (
-          <Disclosure
-            summary="What drives predictions"
-            detail={`Top ${Math.min(8, results.feature_importances.filter((i) => i.importance > 0).length)} features by importance`}
-          >
-            <ImportanceBars items={results.feature_importances} />
-          </Disclosure>
+        {results.caveats.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium text-zinc-300">Caveats to check</div>
+            <ul className="space-y-1.5">
+              {results.caveats.map((c, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-zinc-300">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-alarm" />
+                  <span className="measure">{c}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {!isForecasting && results.features_dropped && results.features_dropped.length > 0 && (
@@ -781,17 +747,57 @@ export default function ReportCard({ runId, results }: { runId: string; results:
           </p>
         )}
 
-        {results.caveats.length > 0 && (
-          <div className="rounded-lg bg-amber-950/40 px-3 py-2.5">
-            <div className="mb-1 text-xs font-medium text-amber-300">Caveats to check</div>
-            <ul className="space-y-1">
-              {results.caveats.map((c, i) => (
-                <li key={i} className="measure text-xs leading-relaxed text-amber-200/80">
-                  • {c}
-                </li>
+        {/* From here down: the dropdowns, ordered by how likely a layman-first
+            reader is to want each one — glossary first, confusion/calibration
+            (the most ML-jargon-heavy views) last. */}
+
+        <MetricGlossary metrics={[primary, ...secondary]} />
+
+        {!isForecasting && results.feature_importances && results.feature_importances.length > 0 && (
+          <Disclosure
+            summary="What drives predictions"
+            meta={`${Math.min(8, results.feature_importances.filter((i) => i.importance > 0).length)} features`}
+            className="border-t border-zinc-800 pt-4"
+          >
+            <ImportanceBars items={results.feature_importances} />
+          </Disclosure>
+        )}
+
+        {hasSegments && diagnostics && (
+          <Disclosure
+            summary="Per-segment breakdown"
+            meta={`Performance across ${diagnostics.segments.length} column${diagnostics.segments.length > 1 ? "s" : ""} — weakest subgroup highlighted`}
+            className="border-t border-zinc-800 pt-4"
+          >
+            <div className="space-y-3">
+              {diagnostics.segments.map((s) => (
+                <SegmentTable key={s.column} segment={s} />
               ))}
-            </ul>
-          </div>
+            </div>
+          </Disclosure>
+        )}
+
+        {!isForecasting && holdout.confusion_matrix && (
+          <Disclosure
+            summary="Confusion matrix"
+            meta={`${holdout.confusion_matrix.matrix.length}×${holdout.confusion_matrix.matrix[0]?.length ?? 0}`}
+            className="border-t border-zinc-800 pt-4"
+          >
+            <ConfusionMatrix
+              labels={holdout.confusion_matrix.labels}
+              matrix={holdout.confusion_matrix.matrix}
+            />
+          </Disclosure>
+        )}
+
+        {hasCalibration && diagnostics?.calibration && (
+          <Disclosure
+            summary="Calibration"
+            meta={`Brier ${fmt(diagnostics.calibration.brier)}`}
+            className="border-t border-zinc-800 pt-4"
+          >
+            <CalibrationView calibration={diagnostics.calibration} />
+          </Disclosure>
         )}
       </div>
     </div>

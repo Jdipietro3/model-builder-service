@@ -7,12 +7,19 @@
  * rather than full cards, since the tab beside it renders the real thing) and
  * no upload button — CSVs go through the Data tab, which is where dataset
  * versions live.
+ *
+ * Width (and full screen) are owned by ResizableSplit, which renders this
+ * component as its right pane — that's why the root here is `h-full w-full`
+ * rather than a fixed width. Full screen toggles ResizableSplit's own state
+ * via useSplitFullScreen rather than any local state, so streaming chat
+ * (held in ProjectProvider, above this component) is never affected by it.
  */
 
 import { useEffect, useRef } from "react";
 import { MessageView, StreamingMessage } from "@/components/Chat";
 import Composer from "@/components/Composer";
 import { useProject } from "@/lib/project-context";
+import { useSplitFullScreen } from "@/components/ResizableSplit";
 
 export default function ChatRail() {
   const {
@@ -29,6 +36,8 @@ export default function ChatRail() {
     setInput,
     send,
   } = useProject();
+
+  const { isFullScreen, toggleFullScreen } = useSplitFullScreen();
 
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -52,9 +61,40 @@ export default function ChatRail() {
   }
 
   return (
-    <aside className="flex w-95 shrink-0 flex-col border-l border-zinc-800 bg-zinc-950">
-      <div className="border-b border-zinc-800 px-4 py-2.5 text-label font-medium uppercase tracking-wide text-zinc-400">
-        Assistant
+    <aside className="flex h-full w-full flex-col border-l border-zinc-800 bg-zinc-950">
+      <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-4 py-2.5">
+        <span className="text-label font-medium uppercase tracking-wide text-zinc-400">
+          Assistant
+        </span>
+        <button
+          type="button"
+          onClick={toggleFullScreen}
+          aria-pressed={isFullScreen}
+          aria-label={isFullScreen ? "Exit full screen" : "Expand assistant to full screen"}
+          className="focus-ring-panel rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-accent"
+        >
+          {isFullScreen ? (
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path
+                d="M5.5 1.5v2a2 2 0 0 1-2 2h-2M8.5 1.5v2a2 2 0 0 0 2 2h2M5.5 12.5v-2a2 2 0 0 0-2-2h-2M8.5 12.5v-2a2 2 0 0 1 2-2h2"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path
+                d="M1.5 5.5v-2a2 2 0 0 1 2-2h2M12.5 5.5v-2a2 2 0 0 0-2-2h-2M1.5 8.5v2a2 2 0 0 0 2 2h2M12.5 8.5v2a2 2 0 0 1-2 2h-2"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </button>
       </div>
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {messages.map((m) => (

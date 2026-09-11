@@ -82,7 +82,7 @@ export default function AccountPage() {
           <h1 className="text-display font-semibold tracking-tight">Account</h1>
 
           <section className="mt-8">
-            <h2 className="text-headline font-semibold">Account</h2>
+            <h2 className="text-title font-medium text-zinc-100">Account</h2>
             <p className="measure mt-2 text-body text-zinc-400">
               Signed in as{" "}
               <span className="font-mono text-xs text-zinc-300">{user?.email}</span>
@@ -90,22 +90,22 @@ export default function AccountPage() {
           </section>
 
           <section className="mt-10 border-t border-zinc-800 pt-8">
-            <h2 className="text-headline font-semibold">Change password</h2>
+            <h2 className="text-title font-medium text-zinc-100">Change password</h2>
             <p className="measure mt-2 text-body text-zinc-400">
               Changing your password signs you out of every other device — this one stays
               signed in.
             </p>
 
             {error && (
-              <div className="fade-in mt-4 flex items-start gap-2.5 rounded-lg border border-red-900 bg-red-950/50 px-4 py-3 text-body text-red-300">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+              <div className="fade-in mt-4 flex items-start gap-2.5 rounded-lg bg-alarm-wash px-4 py-3 text-body text-alarm">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-alarm" />
                 <span>{error}</span>
               </div>
             )}
 
             {success && (
-              <div className="fade-in mt-4 flex items-start gap-2.5 rounded-lg border border-emerald-800 bg-emerald-950/30 px-4 py-3 text-body text-emerald-300">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+              <div className="fade-in mt-4 flex items-start gap-2.5 rounded-lg bg-accent-wash px-4 py-3 text-body text-accent">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                 <span>Password changed. You&rsquo;ve been signed out on every other device.</span>
               </div>
             )}
@@ -126,7 +126,7 @@ export default function AccountPage() {
                   required
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-emerald-600"
+                  className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-accent-edge"
                 />
               </div>
 
@@ -142,7 +142,7 @@ export default function AccountPage() {
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-emerald-600"
+                  className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-accent-edge"
                 />
               </div>
 
@@ -161,30 +161,30 @@ export default function AccountPage() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-emerald-600"
+                  className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-accent-edge"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={busy}
-                className="focus-ring w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-body font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+                className="focus-ring w-full rounded-lg bg-accent px-4 py-2.5 text-body font-medium text-accent-ink transition-colors hover:bg-accent-bright disabled:opacity-40"
               >
                 {busy ? "Changing password…" : "Change password"}
               </button>
             </form>
           </section>
 
-          <section className="mt-10 rounded-lg border border-red-900 bg-red-950/20 p-5">
-            <h2 className="text-headline font-semibold text-red-300">Sign out everywhere</h2>
+          <section className="mt-10 rounded-lg border border-alarm/40 bg-alarm-wash p-5">
+            <h2 className="text-title font-medium text-alarm">Sign out everywhere</h2>
             <p className="measure mt-2 text-body text-zinc-400">
               Ends every signed-in session for this account, including this one — you&rsquo;ll
               be sent to the sign-in page.
             </p>
 
             {signOutError && (
-              <div className="fade-in mt-4 flex items-start gap-2.5 rounded-lg border border-red-900 bg-red-950/50 px-4 py-3 text-body text-red-300">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+              <div className="fade-in mt-4 flex items-start gap-2.5 rounded-lg bg-alarm-wash px-4 py-3 text-body text-alarm">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-alarm" />
                 <span>{signOutError}</span>
               </div>
             )}
@@ -193,7 +193,7 @@ export default function AccountPage() {
               type="button"
               onClick={handleSignOutAll}
               disabled={signingOutAll}
-              className="focus-ring mt-4 rounded-lg border border-red-800 bg-transparent px-4 py-2.5 text-body font-medium text-red-300 transition-colors hover:bg-red-950/50 disabled:opacity-40"
+              className="focus-ring mt-4 rounded-lg px-4 py-2.5 text-body font-medium text-alarm transition-colors hover:bg-zinc-950/40 disabled:opacity-40"
             >
               {signingOutAll ? "Signing out…" : "Sign out everywhere"}
             </button>

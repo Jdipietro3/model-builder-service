@@ -20,7 +20,7 @@ const components: Components = {
   h4: (props) => <h4 className="mb-1 mt-3 text-sm font-semibold text-zinc-200 first:mt-0" {...props} />,
   a: (props) => (
     <a
-      className="text-emerald-400 underline decoration-emerald-700 underline-offset-2 hover:text-emerald-300"
+      className="text-accent underline decoration-accent-line underline-offset-2 hover:text-accent-bright"
       target="_blank"
       rel="noreferrer"
       {...props}
@@ -30,7 +30,7 @@ const components: Components = {
     <code
       // 0.9em, not 0.85em: at the 14px body size the smaller value rendered
       // 11.9px, under the 12px readable floor.
-      className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[0.9em] text-emerald-300"
+      className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[0.9em] text-accent"
       {...props}
     />
   ),

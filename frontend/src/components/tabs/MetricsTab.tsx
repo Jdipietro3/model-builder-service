@@ -54,6 +54,10 @@ export default function MetricsTab() {
         .filter((c): c is Contender => !!c.results)
     : [];
 
+  // Single source of truth for "does the tournament card render" — reused
+  // below to decide the grid layout so the two can never disagree.
+  const showPair = !!selected.tournament_id && tournamentContenders.length >= 2;
+
   return (
     <section className="space-y-4">
       <h2 className="text-headline font-semibold text-zinc-100">Metrics</h2>
@@ -69,7 +73,29 @@ export default function MetricsTab() {
         />
       ) : (
         <>
-          <ReportCard runId={selected.id} results={results} />
+          {showPair ? (
+            // Establishes a query scope sized to this column alone, so the
+            // pair reflows off the draggable split width, not window width.
+            <div className="@container">
+              <div className="grid grid-cols-1 items-start gap-4 @min-[960px]:grid-cols-2">
+                {/* min-w-0 is load-bearing, not defensive: TournamentComparisonCard's
+                    <table className="w-full min-w-max"> otherwise blows its grid
+                    track out to content width (measured: 882px in a 440px
+                    container, crushing the sibling to 60px). A grid item's
+                    auto-min is content-based and overflow-x-auto on a
+                    descendant doesn't reach through the non-scrolling grid
+                    item to fix that — only min-w-0 on the item itself does. */}
+                <div className="min-w-0">
+                  <ReportCard runId={selected.id} results={results} variant="band" />
+                </div>
+                <div className="min-w-0">
+                  <TournamentComparisonCard contenders={tournamentContenders} />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <ReportCard runId={selected.id} results={results} variant="band" />
+          )}
 
           {parentRun && parentResults && (
             <ComparisonCard
@@ -78,10 +104,6 @@ export default function MetricsTab() {
               oldDatasetVersion={parentDataset?.version}
               newDatasetVersion={dataset?.version}
             />
-          )}
-
-          {selected.tournament_id && tournamentContenders.length >= 2 && (
-            <TournamentComparisonCard contenders={tournamentContenders} />
           )}
         </>
       )}

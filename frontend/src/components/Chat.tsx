@@ -36,8 +36,8 @@ const CHIP_LABELS: Record<string, (card: Card) => string> = {
 function CardChip({ card }: { card: Card }) {
   const label = CHIP_LABELS[card.type]?.(card) ?? card.type;
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-400">
-      <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-info" />
       {label} — see workspace
     </span>
   );
@@ -136,7 +136,7 @@ function Bubble({ role, text }: { role: string; text: string }) {
   if (role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-emerald-900/40 px-4 py-2.5 text-sm leading-relaxed text-emerald-50">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-accent-wash px-4 py-2.5 text-sm leading-relaxed text-zinc-100">
           {text}
         </div>
       </div>
@@ -179,11 +179,11 @@ export function StreamingMessage({
       {text ? (
         <div className="max-w-[95%] text-sm leading-relaxed text-zinc-200">
           <Markdown text={closeOpenFence(text)} />
-          <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-emerald-500 align-text-bottom" />
+          <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-accent align-text-bottom" />
         </div>
       ) : (
         <div className="flex items-center gap-2 text-sm text-zinc-400">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-info" />
           Thinking…
         </div>
       )}

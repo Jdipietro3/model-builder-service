@@ -16,13 +16,13 @@ A secondary audience is ML engineers and data scientists who already know the fi
 
 ## Product Purpose
 
-Model Builder (the name is provisional) is a chat-driven tool for training ML models. A user describes their data and what they want to do with it; the system interprets the problem, selects an appropriate methodology from a curated set of known-good approaches, assembles the pipeline, trains the model, and reports results a non-specialist can act on.
+Metis is a chat-driven tool for training ML models. A user describes their data and what they want to do with it; the system interprets the problem, selects an appropriate methodology from a curated set of known-good approaches, assembles the pipeline, trains the model, and reports results a non-specialist can act on.
 
 Success is the whole loop cohering as one legible journey: describe, train, inspect, deploy, monitor, retrain. The value is not any single step but the fact that these steps connect and stay understandable end to end. A user should always know where they are in that loop and what they can do next.
 
 ## Positioning
 
-Model Builder brings senior-ML-engineer judgment to framing the problem and choosing the approach, and it owns the whole path to production, not just the training step. Every screen should reinforce that this is judgment plus a full pipeline, not a hyperparameter search that stops at an accuracy score.
+Metis brings senior-ML-engineer judgment to framing the problem and choosing the approach, and it owns the whole path to production, not just the training step. Every screen should reinforce that this is judgment plus a full pipeline, not a hyperparameter search that stops at an accuracy score.
 
 ## Brand Personality
 

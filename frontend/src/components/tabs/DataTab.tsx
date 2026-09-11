@@ -64,7 +64,7 @@ function DatasetUpdateControl({
             type="button"
             onClick={() => submit("replace")}
             disabled={busy}
-            className="focus-ring-panel rounded border border-zinc-700 px-2 py-0.5 text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400 disabled:opacity-40"
+            className="focus-ring-panel rounded px-2 py-1 text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-accent disabled:opacity-40"
           >
             Replace
           </button>
@@ -72,7 +72,7 @@ function DatasetUpdateControl({
             type="button"
             onClick={() => submit("append")}
             disabled={busy}
-            className="focus-ring-panel rounded border border-zinc-700 px-2 py-0.5 text-zinc-300 transition-colors hover:border-emerald-600 hover:text-emerald-400 disabled:opacity-40"
+            className="focus-ring-panel rounded px-2 py-1 text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-accent disabled:opacity-40"
           >
             Append
           </button>
@@ -90,7 +90,7 @@ function DatasetUpdateControl({
             ×
           </button>
         </div>
-        {error && <span className="max-w-48 text-right text-label text-red-300">{error}</span>}
+        {error && <span className="max-w-48 text-right text-label text-alarm">{error}</span>}
       </div>
     );
   }
@@ -100,7 +100,7 @@ function DatasetUpdateControl({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="focus-ring-panel cursor-pointer text-label text-zinc-400 transition-colors hover:text-emerald-400"
+        className="focus-ring-panel cursor-pointer text-label text-zinc-400 transition-colors hover:text-accent"
       >
         Update
       </button>
@@ -134,7 +134,7 @@ export default function DataTab() {
         <button
           type="button"
           onClick={() => addInputRef.current?.click()}
-          className="focus-ring cursor-pointer text-label text-zinc-400 transition-colors hover:text-emerald-400"
+          className="focus-ring cursor-pointer text-label text-zinc-400 transition-colors hover:text-accent"
         >
           + Add dataset
         </button>
@@ -160,7 +160,7 @@ export default function DataTab() {
         <div className="space-y-2">
           {tips.map((d) => (
             <div key={d.id}>
-              <div className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-2.5 transition-colors hover:border-zinc-700">
+              <div className="flex items-center gap-2 border-b border-zinc-800 px-1 py-2.5 transition-colors hover:bg-zinc-900/50">
                 <button
                   onClick={() => setOpen((prev) => ({ ...prev, [d.id]: !prev[d.id] }))}
                   className="focus-ring-panel flex min-w-0 flex-1 items-center justify-between text-left"

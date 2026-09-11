@@ -90,7 +90,7 @@ export default function ScoreTab() {
           type="button"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
-          className="focus-ring cursor-pointer rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-body font-medium text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-emerald-300 disabled:pointer-events-none disabled:opacity-40"
+          className="focus-ring cursor-pointer rounded-lg bg-accent px-4 py-2 text-body font-medium text-accent-ink transition-colors hover:bg-accent-bright disabled:pointer-events-none disabled:opacity-40"
         >
           {busy ? "Scoring…" : "Upload CSV to score"}
         </button>
@@ -112,7 +112,7 @@ export default function ScoreTab() {
         {run.plan.task_type !== "regression" && " and per-class probabilities"}.
       </p>
       {error && (
-        <div className="mb-3 rounded-lg border border-red-900 bg-red-950/40 px-4 py-2.5 text-body text-red-300">
+        <div className="mb-3 rounded-lg bg-alarm-wash px-4 py-2.5 text-body text-alarm">
           {error}
         </div>
       )}

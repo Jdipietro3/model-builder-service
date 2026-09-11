@@ -79,7 +79,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="focus-ring-panel rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-body font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
+            className="focus-ring-panel rounded-lg px-4 py-2 text-body font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
           >
             {cancelLabel}
           </button>
@@ -87,7 +87,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="focus-ring-panel rounded-lg bg-emerald-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+            className="focus-ring-panel rounded-lg bg-accent px-4 py-2 text-body font-medium text-accent-ink transition-colors hover:bg-accent-bright disabled:opacity-40"
           >
             {busy ? "Working…" : confirmLabel}
           </button>

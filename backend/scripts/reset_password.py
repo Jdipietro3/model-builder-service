@@ -69,7 +69,7 @@ def prompt_for_password() -> str | None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Reset a Model Builder account password.")
+    parser = argparse.ArgumentParser(description="Reset a Metis account password.")
     parser.add_argument("email", nargs="?", help="Account to reset.")
     parser.add_argument("--list", action="store_true", help="List accounts and exit.")
     parser.add_argument(

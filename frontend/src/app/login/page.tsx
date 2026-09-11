@@ -16,6 +16,8 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useProjects } from "@/lib/projects-context";
 import { extractErrorDetail } from "@/lib/errors";
+import MetisLockup from "@/components/MetisLockup";
+import GlyphField from "@/components/GlyphField";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -46,16 +48,24 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex h-full flex-col items-center justify-center overflow-y-auto px-6 py-16">
-      <div className="w-full max-w-sm">
-        <h1 className="text-display font-semibold tracking-tight">Sign in</h1>
+    <main className="relative flex h-full flex-col items-center justify-center overflow-y-auto px-6 py-16">
+      <GlyphField />
+
+      <div className="relative z-10 w-full max-w-sm rounded-xl border border-accent-edge bg-zinc-950 p-8">
+        <div className="flex items-center justify-center">
+          {/* The lockup carries the wordmark itself, so the card no longer
+              needs a separate "Metis" span next to it. */}
+          <MetisLockup size={40} className="text-accent" />
+        </div>
+
+        <h1 className="mt-8 text-display font-semibold tracking-tight">Sign in</h1>
         <p className="measure mt-2 text-body text-zinc-400">
           Sign in to pick up your projects, models, and deployments where you left off.
         </p>
 
         {error && (
-          <div className="fade-in mt-6 flex items-start gap-2.5 rounded-lg border border-red-900 bg-red-950/50 px-4 py-3 text-body text-red-300">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+          <div className="fade-in mt-6 flex items-start gap-2.5 rounded-lg bg-alarm-wash px-4 py-3 text-body text-alarm">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-alarm" />
             <span>{error}</span>
           </div>
         )}
@@ -73,7 +83,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-emerald-600"
+              className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-accent-edge"
             />
           </div>
 
@@ -89,14 +99,14 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-emerald-600"
+              className="focus-ring w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-body text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-accent-edge"
             />
           </div>
 
           <button
             type="submit"
             disabled={busy}
-            className="focus-ring w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-body font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+            className="focus-ring w-full rounded-lg bg-accent px-4 py-2.5 text-body font-medium text-accent-ink transition-colors hover:bg-accent-bright disabled:opacity-40"
           >
             {busy ? "Signing in…" : "Sign in"}
           </button>
@@ -106,7 +116,7 @@ export default function LoginPage() {
           Don&rsquo;t have an account?{" "}
           <Link
             href="/signup"
-            className="focus-ring rounded text-emerald-400 transition-colors hover:text-emerald-300"
+            className="focus-ring rounded text-accent transition-colors hover:text-accent-bright"
           >
             Create one
           </Link>
